@@ -33,8 +33,15 @@ namespace ArenaForge.Editor
     /// </remarks>
     public sealed class ArenaForgeWindow : EditorWindow
     {
-        const string UxmlPath = "Assets/ArenaForge/Editor/UI/ArenaForgeWindow.uxml";
-        const string UssPath = "Assets/ArenaForge/Editor/UI/ArenaForgeWindow.uss";
+        // Logical package paths rather than a location on disk: an installed package lives in
+        // Library/PackageCache under a hashed folder name, and Unity resolves "Packages/<name>/…"
+        // to it either way. Internal so a test can assert they still resolve — a path that stops
+        // matching where the file lives leaves a window with no markup in it and nothing else fails.
+        internal const string UxmlPath =
+            "Packages/com.pinchasvaknin.arenaforge/Editor/UI/ArenaForgeWindow.uxml";
+
+        internal const string UssPath =
+            "Packages/com.pinchasvaknin.arenaforge/Editor/UI/ArenaForgeWindow.uss";
 
         /// <summary>Drag-and-drop payload key the catalog rows and the scene view agree on.</summary>
         const string DragKey = "ArenaForge.LogicalId";
