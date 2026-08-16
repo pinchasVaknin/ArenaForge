@@ -89,7 +89,7 @@ namespace ArenaForge.Tests
         /// <summary>A five-object map carrying one override of each kind.</summary>
         public static WorldDoc SampleWorld()
         {
-            var doc = new WorldDoc { Seed = 20260816UL };
+            var doc = new WorldDoc { Parameters = new ArenaParams { Seed = 20260816UL } };
 
             doc.GeneratedObjects.Add(new PlacedObject(
                 "map/spawn_a/marker",

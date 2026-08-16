@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 using ArenaForge.Core;
 using ArenaForge.Unity;
@@ -44,10 +45,14 @@ namespace ArenaForge.Tests
         }
 
         [Test]
-        public void TheUnityAdapterSeesCore()
+        public void TheUnityAdapterSitsInItsOwnAssemblyAndReferencesCore()
         {
-            StringAssert.Contains(
-                $"Core schema {WorldDoc.CurrentSchemaVersion}", ArenaForgeRuntimeInfo.Describe());
+            Assembly adapter = typeof(WorldRealizer).Assembly;
+
+            Assert.That(adapter.GetName().Name, Is.EqualTo("ArenaForge.Unity"));
+            Assert.That(
+                adapter.GetReferencedAssemblies().Select(a => a.Name),
+                Does.Contain("ArenaForge.Core"));
         }
     }
 }

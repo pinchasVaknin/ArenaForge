@@ -13,7 +13,7 @@ namespace ArenaForge.Tests
     {
         static WorldDoc TwoObjects()
         {
-            var doc = new WorldDoc { Seed = 1UL };
+            var doc = new WorldDoc { Parameters = new ArenaParams { Seed = 1UL } };
             doc.GeneratedObjects.Add(new PlacedObject(
                 "map/lane_mid/cover_00",
                 "cover/low/crate_wood_01",
@@ -160,7 +160,7 @@ namespace ArenaForge.Tests
             before.Overrides.Add(EditOverride.Move("map/lane_mid/cover_01", Pose.At(new Vec3(6f, 0f, 6f))));
             Assert.That(before.Resolve().OrphanedOverrides, Is.Empty);
 
-            var after = new WorldDoc { Seed = 2UL };
+            var after = new WorldDoc { Parameters = new ArenaParams { Seed = 2UL } };
             after.GeneratedObjects.Add(before.GeneratedObjects[0]);
             after.Overrides.AddRange(before.Overrides);
 

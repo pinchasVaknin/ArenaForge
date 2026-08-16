@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "seed": 20260816,
   "parameters": {
+    "seed": 20260816,
     "playfieldSize": {
       "x": 60.0,
       "y": 60.0

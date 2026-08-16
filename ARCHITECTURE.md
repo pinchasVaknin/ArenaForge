@@ -40,8 +40,10 @@ refactored to fit it rather than guessed at now.
 
 ## 2. Seed + parameters + overrides
 
-A `WorldDoc` holds a schema version, a seed, a parameters object, the generated object list, and an
-override list. Resolving it means running the generator and then applying overrides on top.
+A `WorldDoc` holds a schema version, a parameters object, the generated object list, and an override
+list. The seed lives inside the parameters rather than beside them: the generator takes one argument
+describing what to build, so there is no second place a seed could disagree with the document it
+produced. Resolving a document means running the generator and then applying overrides on top.
 
 The obvious alternative is to generate once and save the resulting scene. That is rejected because it
 throws away the generator the moment a human touches the output. With a baked scene, changing the
@@ -127,6 +129,11 @@ Assets/ArenaForge/
   Runtime/Unity/    ArenaForge.Unity.asmdef     → Core
   Editor/           ArenaForge.Editor.asmdef    → Core, Unity; Editor platform only
   Tests/EditMode/   ArenaForge.Tests.asmdef     → Core, Unity; NUnit; UNITY_INCLUDE_TESTS
+  Samples/          ArenaForge.Samples.asmdef   → Core, Unity, Input System
 ```
+
+`Samples/` holds the demo scene and the two scripts that drive it. It is a fifth assembly rather than
+loose scripts so the demo cannot become something the tool depends on: nothing references it, and
+deleting the folder leaves the tool intact.
 
 Unity 6 (6000.3.11f1), URP, `com.unity.nuget.newtonsoft-json`.

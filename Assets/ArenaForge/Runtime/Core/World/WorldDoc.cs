@@ -23,20 +23,18 @@ namespace ArenaForge.Core
         [JsonProperty("schemaVersion", Order = 0)]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
-        /// <summary>Seed the generated objects were produced from.</summary>
-        [JsonProperty("seed", Order = 1)]
-        public ulong Seed { get; set; }
-
-        /// <summary>Generator settings the generated objects were produced with.</summary>
-        [JsonProperty("parameters", Order = 2)]
+        /// <summary>
+        /// Generator settings the generated objects were produced with, seed included.
+        /// </summary>
+        [JsonProperty("parameters", Order = 1)]
         public ArenaParams Parameters { get; set; } = new ArenaParams();
 
         /// <summary>What the generator produced, in generation order.</summary>
-        [JsonProperty("generatedObjects", Order = 3)]
+        [JsonProperty("generatedObjects", Order = 2)]
         public List<PlacedObject> GeneratedObjects { get; } = new List<PlacedObject>();
 
         /// <summary>Manual edits, applied in list order.</summary>
-        [JsonProperty("overrides", Order = 4)]
+        [JsonProperty("overrides", Order = 3)]
         public List<EditOverride> Overrides { get; } = new List<EditOverride>();
 
         /// <summary>

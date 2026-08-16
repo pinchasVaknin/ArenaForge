@@ -64,7 +64,8 @@ namespace ArenaForge.Tests
             string json = ArenaJson.SerializeWorld(TestWorlds.SampleWorld());
 
             Assert.That(json, Does.Not.Contain("\r"), "output must not depend on the host's line ending");
-            Assert.That(json, Does.Contain("\n  \"seed\""), "output should be indented two spaces");
+            Assert.That(json, Does.Contain("\n  \"parameters\""), "output should be indented two spaces");
+            Assert.That(json, Does.Contain("\n    \"seed\""), "the seed lives inside the parameters");
         }
 
         [Test]
@@ -85,7 +86,7 @@ namespace ArenaForge.Tests
                 float.MaxValue, float.MinValue, -0.000123456f, 16777217f,
             };
 
-            var doc = new WorldDoc { Seed = ulong.MaxValue };
+            var doc = new WorldDoc { Parameters = new ArenaParams { Seed = ulong.MaxValue } };
             for (int i = 0; i < awkward.Length; i++)
             {
                 doc.GeneratedObjects.Add(new PlacedObject(
@@ -101,7 +102,7 @@ namespace ArenaForge.Tests
 
             WorldDoc restored = ArenaJson.DeserializeWorld(ArenaJson.SerializeWorld(doc));
 
-            Assert.That(restored.Seed, Is.EqualTo(ulong.MaxValue));
+            Assert.That(restored.Parameters.Seed, Is.EqualTo(ulong.MaxValue));
             for (int i = 0; i < doc.GeneratedObjects.Count; i++)
             {
                 Pose expected = doc.GeneratedObjects[i].Pose;
@@ -176,7 +177,7 @@ namespace ArenaForge.Tests
         public void AMissingSchemaVersionIsRejected()
         {
             var error = Assert.Throws<UnsupportedSchemaVersionException>(
-                () => ArenaJson.DeserializeWorld("{ \"seed\": 1 }"));
+                () => ArenaJson.DeserializeWorld("{ \"parameters\": { \"seed\": 1 } }"));
 
             Assert.That(error.FoundVersion, Is.Null);
         }
@@ -185,7 +186,7 @@ namespace ArenaForge.Tests
         public void AnOverrideMissingItsPayloadIsRejectedOnLoad()
         {
             string json =
-                "{ \"schemaVersion\": 1, \"seed\": 1, \"overrides\": [ " +
+                "{ \"schemaVersion\": 1, \"parameters\": { \"seed\": 1 }, \"overrides\": [ " +
                 "{ \"targetId\": \"map/lane_mid/cover_00\", \"op\": \"Move\" } ] }";
 
             // The deserialiser wraps the failure, so the assertion is on the innermost cause: our

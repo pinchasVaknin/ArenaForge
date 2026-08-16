@@ -15,8 +15,7 @@ namespace ArenaForge.Tests
         {
             Assert.That(actual, Is.Not.Null);
             Assert.That(actual.SchemaVersion, Is.EqualTo(expected.SchemaVersion), "schemaVersion");
-            Assert.That(actual.Seed, Is.EqualTo(expected.Seed), "seed");
-
+            Assert.That(actual.Parameters.Seed, Is.EqualTo(expected.Parameters.Seed), "seed");
             Assert.That(actual.Parameters.PlayfieldSize, Is.EqualTo(expected.Parameters.PlayfieldSize));
             Assert.That(actual.Parameters.LaneCount, Is.EqualTo(expected.Parameters.LaneCount));
             Assert.That(actual.Parameters.GridSize, Is.EqualTo(expected.Parameters.GridSize));
