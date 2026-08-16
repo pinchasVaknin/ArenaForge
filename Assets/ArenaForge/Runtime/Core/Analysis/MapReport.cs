@@ -16,17 +16,17 @@ namespace ArenaForge.Core
     }
 
     /// <summary>
-    /// One metric that did not meet its threshold, and by how much.
+    /// One metric, what it measured, and the threshold it was judged against.
     /// </summary>
     /// <remarks>
     /// The margin is carried rather than left for the reader to subtract because this is what a
-    /// failing property test prints. "CoverCoverage 0.79, needs at least 0.80, short by 0.01" says
+    /// failing property test prints. "CoverCoverage 0.79, needs at least 0.80, out by 0.01" says
     /// the generator drifted; the same line reading 0.31 says it broke.
     /// </remarks>
-    public readonly struct MetricFailure
+    public readonly struct MetricReading
     {
-        /// <summary>Creates a failure record.</summary>
-        public MetricFailure(string metric, float value, float threshold, MetricBound bound)
+        /// <summary>Creates a reading.</summary>
+        public MetricReading(string metric, float value, float threshold, MetricBound bound)
         {
             Metric = metric;
             Value = value;
@@ -34,7 +34,7 @@ namespace ArenaForge.Core
             Bound = bound;
         }
 
-        /// <summary>Name of the metric that failed.</summary>
+        /// <summary>Name of the metric.</summary>
         public string Metric { get; }
 
         /// <summary>What it measured.</summary>
@@ -46,14 +46,27 @@ namespace ArenaForge.Core
         /// <summary>Which side of the threshold the value had to be on.</summary>
         public MetricBound Bound { get; }
 
-        /// <summary>How far the wrong side of the threshold the value fell.</summary>
+        /// <summary>True if the value is on the right side of its threshold.</summary>
+        public bool Meets => Bound == MetricBound.AtLeast ? Value >= Threshold : Value <= Threshold;
+
+        /// <summary>
+        /// How far the wrong side of the threshold the value fell. Zero or negative on a metric
+        /// that passed.
+        /// </summary>
         public float Margin => Bound == MetricBound.AtLeast ? Threshold - Value : Value - Threshold;
 
+        /// <summary>The bound as the words a report prints — "at least" or "at most".</summary>
+        public string BoundText => Bound == MetricBound.AtLeast ? "at least" : "at most";
+
         /// <inheritdoc />
-        public override string ToString() => string.Format(
-            CultureInfo.InvariantCulture,
-            "{0} {1:0.###}, needs {2} {3:0.###} (out by {4:0.###})",
-            Metric, Value, Bound == MetricBound.AtLeast ? "at least" : "at most", Threshold, Margin);
+        public override string ToString() => Meets
+            ? string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} {1:0.###}, needs {2} {3:0.###}", Metric, Value, BoundText, Threshold)
+            : string.Format(
+                CultureInfo.InvariantCulture,
+                "{0} {1:0.###}, needs {2} {3:0.###} (out by {4:0.###})",
+                Metric, Value, BoundText, Threshold, Margin);
     }
 
     /// <summary>
@@ -108,7 +121,8 @@ namespace ArenaForge.Core
     /// </remarks>
     public sealed class MapReport
     {
-        readonly List<MetricFailure> _failures = new List<MetricFailure>();
+        readonly List<MetricReading> _readings = new List<MetricReading>();
+        readonly List<MetricReading> _failures = new List<MetricReading>();
 
         /// <summary>Creates a report and evaluates every metric against its threshold.</summary>
         /// <exception cref="ArgumentNullException">An argument is null.</exception>
@@ -136,16 +150,16 @@ namespace ArenaForge.Core
             MaxAllowedOpenSightline = maxAllowedOpenSightline;
             Connectivity = connectivity;
 
-            Check("SpawnSeparation", spawnSeparation, minSpawnSeparation, MetricBound.AtLeast);
-            Check("ExposureAsymmetry", exposureAsymmetry, thresholds.MaxExposureAsymmetry, MetricBound.AtMost);
-            Check("CoverCoverage", coverCoverage, thresholds.MinCoverCoverage, MetricBound.AtLeast);
-            Check("MaxOpenSightline", maxOpenSightline, maxAllowedOpenSightline, MetricBound.AtMost);
-            Check(
+            Read("SpawnSeparation", spawnSeparation, minSpawnSeparation, MetricBound.AtLeast);
+            Read("ExposureAsymmetry", exposureAsymmetry, thresholds.MaxExposureAsymmetry, MetricBound.AtMost);
+            Read("CoverCoverage", coverCoverage, thresholds.MinCoverCoverage, MetricBound.AtLeast);
+            Read("MaxOpenSightline", maxOpenSightline, maxAllowedOpenSightline, MetricBound.AtMost);
+            Read(
                 "SpawnsConnected", connectivity.SpawnsConnected ? 1f : 0f, 1f, MetricBound.AtLeast);
-            Check(
+            Read(
                 "DoorwaysReachable", connectivity.DoorwayReachableFraction,
                 thresholds.MinDoorwayReachableFraction, MetricBound.AtLeast);
-            Check(
+            Read(
                 "ReachableFraction", connectivity.ReachableFraction,
                 thresholds.MinReachableFraction, MetricBound.AtLeast);
         }
@@ -189,8 +203,18 @@ namespace ArenaForge.Core
         /// <summary>What the cover placer tried and what stopped it, read back from the document.</summary>
         public PlacementStats PlacementStats { get; }
 
-        /// <summary>Every metric that missed its threshold, in the order they are checked.</summary>
-        public IReadOnlyList<MetricFailure> Failures => _failures;
+        /// <summary>
+        /// Every metric beside its threshold, in the order they are measured.
+        /// </summary>
+        /// <remarks>
+        /// The editor's validation panel renders this list rather than reaching for the individual
+        /// properties, so which metrics exist and which side of their threshold they belong on is
+        /// decided here and nowhere else.
+        /// </remarks>
+        public IReadOnlyList<MetricReading> Readings => _readings;
+
+        /// <summary>The subset of <see cref="Readings"/> that missed its threshold.</summary>
+        public IReadOnlyList<MetricReading> Failures => _failures;
 
         /// <summary>True if every metric met its threshold.</summary>
         public bool IsPlayable => _failures.Count == 0;
@@ -207,17 +231,16 @@ namespace ArenaForge.Core
                 "{0} ({1} failing)", IsPlayable ? "playable" : "NOT playable", _failures.Count)
                 .AppendLine();
 
-            Line(text, "SpawnSeparation", SpawnSeparation, MetricBound.AtLeast, MinSpawnSeparation);
-            Line(text, "ExposureAsymmetry", ExposureAsymmetry, MetricBound.AtMost, Thresholds.MaxExposureAsymmetry);
-            Line(text, "CoverCoverage", CoverCoverage, MetricBound.AtLeast, Thresholds.MinCoverCoverage);
-            Line(text, "MaxOpenSightline", MaxOpenSightline, MetricBound.AtMost, MaxAllowedOpenSightline);
-            Line(text, "SpawnsConnected", Connectivity.SpawnsConnected ? 1f : 0f, MetricBound.AtLeast, 1f);
-            Line(
-                text, "DoorwaysReachable", Connectivity.DoorwayReachableFraction, MetricBound.AtLeast,
-                Thresholds.MinDoorwayReachableFraction);
-            Line(
-                text, "ReachableFraction", Connectivity.ReachableFraction, MetricBound.AtLeast,
-                Thresholds.MinReachableFraction);
+            for (int i = 0; i < _readings.Count; i++)
+            {
+                MetricReading reading = _readings[i];
+                text.AppendFormat(
+                    CultureInfo.InvariantCulture,
+                    "  {0,-17} {1,8:0.###}   {2} {3:0.###}   {4}",
+                    reading.Metric, reading.Value, reading.BoundText, reading.Threshold,
+                    reading.Meets ? "pass" : "FAIL")
+                    .AppendLine();
+            }
 
             text.AppendFormat(
                 CultureInfo.InvariantCulture,
@@ -238,24 +261,14 @@ namespace ArenaForge.Core
             ? "playable"
             : $"not playable: {string.Join("; ", _failures)}";
 
-        static bool Meets(float value, float threshold, MetricBound bound) =>
-            bound == MetricBound.AtLeast ? value >= threshold : value <= threshold;
-
-        static void Line(StringBuilder text, string name, float value, MetricBound bound, float threshold)
+        void Read(string metric, float value, float threshold, MetricBound bound)
         {
-            text.AppendFormat(
-                CultureInfo.InvariantCulture,
-                "  {0,-17} {1,8:0.###}   {2} {3:0.###}   {4}",
-                name, value, bound == MetricBound.AtLeast ? "at least" : "at most", threshold,
-                Meets(value, threshold, bound) ? "pass" : "FAIL")
-                .AppendLine();
-        }
+            var reading = new MetricReading(metric, value, threshold, bound);
+            _readings.Add(reading);
 
-        void Check(string metric, float value, float threshold, MetricBound bound)
-        {
-            if (!Meets(value, threshold, bound))
+            if (!reading.Meets)
             {
-                _failures.Add(new MetricFailure(metric, value, threshold, bound));
+                _failures.Add(reading);
             }
         }
     }

@@ -155,7 +155,34 @@ rather than stopping, so a lane a building has cut in two is filled on both side
 
 ---
 
-## 6. Assembly layout
+## 6. In the editor, the document is authoritative and the scene is derived
+
+`ArenaMap` is the component a scene holds, and what it holds is the document's JSON — not an object
+graph, and not the GameObjects. Unity can serialise a string into a scene, snapshot it for
+`Undo.RegisterCompleteObjectUndo` and put it back again, none of which it can do for a `WorldDoc`;
+and it means the map in the scene and the map in a saved file are the same bytes, so there is one
+persistence path rather than two. The realised GameObjects are rebuilt from the document on demand
+and are never the source of anything.
+
+That inverts the usual editor-tool relationship, and the capture layer is where the inversion is
+paid for. A user drags a crate; a GameObject moves; nothing about the map has changed yet.
+`ArenaEditCapture` diffs each realised instance against the pose the document resolved it to and
+records the difference as an override. Three decisions in it are worth naming:
+
+- **It watches only while the tool window is open.** Capture mutates the user's document, and a
+  global editor hook doing that quietly in every scene that happens to contain a map is a worse
+  bargain than a tool that only watches while it is on screen.
+- **It records an edit when the instance comes to rest**, not on every tick of a drag. One gesture
+  makes one override and one undo step, rather than ten a second of both.
+- **It collapses its undo group back to before the gesture began**, so Unity's own transform-move
+  entry and the document change come back together on one Ctrl+Z. Without that the two would undo
+  separately, and between them the scene would disagree with the document — which the next capture
+  tick would faithfully record as a fresh edit, fighting the undo.
+
+Regeneration re-runs the generator and re-applies the override list. Orphans go to the window as a
+warning list with explicit keep and discard actions, per section 2; the tool never decides.
+
+## 7. Assembly layout
 
 ```
 Assets/ArenaForge/

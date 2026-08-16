@@ -4,6 +4,7 @@
     "references": [
         "ArenaForge.Core",
         "ArenaForge.Unity",
+        "ArenaForge.Editor",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

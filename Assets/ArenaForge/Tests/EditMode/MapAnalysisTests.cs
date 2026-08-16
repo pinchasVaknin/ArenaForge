@@ -307,7 +307,7 @@ namespace ArenaForge.Tests
             Assert.That(Failed(report, "CoverCoverage"), Is.True);
             Assert.That(Failed(report, "MaxOpenSightline"), Is.True);
 
-            MetricFailure coverage = FailureFor(report, "CoverCoverage");
+            MetricReading coverage = FailureFor(report, "CoverCoverage");
             Assert.That(coverage.Bound, Is.EqualTo(MetricBound.AtLeast));
             Assert.That(coverage.Margin, Is.EqualTo(1.5f - report.CoverCoverage).Within(1e-5f));
             Assert.That(coverage.ToString(), Does.Contain("CoverCoverage").And.Contain("at least"));
@@ -426,7 +426,7 @@ namespace ArenaForge.Tests
             return false;
         }
 
-        static MetricFailure FailureFor(MapReport report, string metric)
+        static MetricReading FailureFor(MapReport report, string metric)
         {
             for (int i = 0; i < report.Failures.Count; i++)
             {

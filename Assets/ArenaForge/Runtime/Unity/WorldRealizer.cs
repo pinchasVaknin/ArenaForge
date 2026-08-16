@@ -56,6 +56,7 @@ namespace ArenaForge.Unity
                 {
                     var root = new GameObject(RootName);
                     root.transform.SetParent(transform, false);
+                    RegisterCreated(root);
                     _root = root.transform;
                 }
 
@@ -116,11 +117,17 @@ namespace ArenaForge.Unity
                 if (Application.isPlaying)
                 {
                     Destroy(doomed[i]);
+                    continue;
                 }
-                else
-                {
-                    DestroyImmediate(doomed[i]);
-                }
+
+#if UNITY_EDITOR
+                // Undo.DestroyObjectImmediate rather than DestroyImmediate: a regeneration that
+                // cannot be walked back is worse than no regeneration, and the editor collapses
+                // this and the instantiation that follows into one undo step.
+                UnityEditor.Undo.DestroyObjectImmediate(doomed[i]);
+#else
+                DestroyImmediate(doomed[i]);
+#endif
             }
         }
 
@@ -150,6 +157,20 @@ namespace ArenaForge.Unity
             t.localScale = Vector3.one * pose.Scale;
 
             instance.AddComponent<ArenaObjectRef>().Bind(placed.StableId);
+
+            // Registered after the component is attached and the pose applied, so one undo takes
+            // the whole finished instance away rather than leaving a bare prefab behind.
+            RegisterCreated(instance);
+        }
+
+        static void RegisterCreated(GameObject instance)
+        {
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEditor.Undo.RegisterCreatedObjectUndo(instance, "ArenaForge: realize");
+            }
+#endif
         }
 
         // In the editor the prefab link has to survive: an instance that is a plain copy cannot be

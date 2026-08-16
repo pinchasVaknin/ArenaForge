@@ -350,6 +350,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1309333955}
   - component: {fileID: 1309333954}
+  - component: {fileID: 1309333956}
   - component: {fileID: 1309333953}
   m_Layer: 0
   m_Name: ArenaForge Demo Map
@@ -370,14 +371,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54473171e6b165c41a73663b123e449a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: ArenaForge.Samples::ArenaForge.Samples.ArenaDemoMap
-  _seed: 20260816
-  _playfieldSize: {x: 60, y: 60}
-  _laneCount: 3
-  _gridSize: 1
-  _structureDensity: 1
-  _coverDensity: 1
-  _lowToHighCoverRatio: 2
-  _fineCoverRotation: 0
   _generateOnStart: 1
 --- !u!114 &1309333954
 MonoBehaviour:
@@ -393,6 +386,27 @@ MonoBehaviour:
   m_EditorClassIdentifier: ArenaForge.Unity::ArenaForge.Unity.WorldRealizer
   _catalog: {fileID: 11400000, guid: ca25975bde4485247aa8cb6ca74e00da, type: 2}
   _root: {fileID: 0}
+--- !u!114 &1309333956
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1309333952}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1177fc2bb0826fa4e8bed7f6fc2737d1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: ArenaForge.Unity::ArenaForge.Unity.ArenaMap
+  _seed: 20260816
+  _playfieldSize: {x: 60, y: 60}
+  _laneCount: 3
+  _gridSize: 1
+  _structureDensity: 1
+  _coverDensity: 1
+  _lowToHighCoverRatio: 2
+  _fineCoverRotation: 0
+  _worldJson:
 --- !u!4 &1309333955
 Transform:
   m_ObjectHideFlags: 0

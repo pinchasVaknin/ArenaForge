@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="root" class="af-root">
+
+        <ui:VisualElement name="target-slot" class="af-section" />
+
+        <ui:VisualElement name="empty-state" class="af-empty">
+            <ui:Label class="af-help" text="No arena map selected. Pick a GameObject that has an ArenaForge Map component, or put one in the scene." />
+            <ui:Button name="create-map" text="Create map in scene" />
+        </ui:VisualElement>
+
+        <ui:ScrollView name="body">
+
+            <ui:Label name="status" class="af-status" />
+
+            <ui:Foldout name="parameters-foldout" text="Parameters" value="true" class="af-section">
+                <ui:VisualElement name="seed-slot" />
+                <ui:VisualElement name="playfield-slot" />
+                <ui:IntegerField name="lane-count" label="Lane count" />
+                <ui:FloatField name="grid-size" label="Grid size (m)" />
+                <ui:FloatField name="structure-density" label="Structure density" />
+                <ui:FloatField name="cover-density" label="Cover density" />
+                <ui:FloatField name="low-high-ratio" label="Low : high cover" />
+                <ui:Toggle name="fine-rotation" label="Fine cover rotation" />
+                <ui:FloatField name="eye-height" label="Eye height (m)" />
+                <ui:Label class="af-help" text="Eye height measures the map; it is not part of the document, so changing it re-analyses without regenerating." />
+            </ui:Foldout>
+
+            <ui:VisualElement class="af-buttons">
+                <ui:Button name="generate" text="Generate" />
+                <ui:Button name="regenerate" text="Regenerate (keep edits)" />
+                <ui:Button name="clear" text="Clear" />
+            </ui:VisualElement>
+            <ui:VisualElement class="af-buttons">
+                <ui:Button name="save" text="Save world..." />
+                <ui:Button name="load" text="Load world..." />
+            </ui:VisualElement>
+
+            <ui:Foldout name="report-foldout" text="Validation" value="true" class="af-section">
+                <ui:Label name="report-verdict" class="af-verdict" />
+                <ui:VisualElement name="metric-rows" />
+                <ui:Label name="placement-summary" class="af-help" />
+            </ui:Foldout>
+
+            <ui:Foldout name="exposure-foldout" text="Exposure" value="true" class="af-section">
+                <ui:Toggle name="show-in-scene" label="Draw in scene view" />
+                <ui:Image name="heatmap" class="af-heatmap" />
+                <ui:VisualElement name="ramp" class="af-ramp" />
+                <ui:VisualElement class="af-ramp-labels">
+                    <ui:Label text="sheltered" />
+                    <ui:Label text="exposed" />
+                </ui:VisualElement>
+                <ui:Label name="exposure-summary" class="af-help" />
+            </ui:Foldout>
+
+            <ui:Foldout name="overrides-foldout" text="Overrides" value="true" class="af-section">
+                <ui:VisualElement name="override-rows" />
+                <ui:Label name="override-empty" class="af-help" text="No manual edits yet. Move or delete a realised object in the scene and it appears here." />
+            </ui:Foldout>
+
+            <ui:Foldout name="orphans-foldout" text="Orphaned overrides" value="true" class="af-section af-warning">
+                <ui:Label class="af-help" text="These edits point at objects the current generation no longer produces. Nothing has been discarded." />
+                <ui:VisualElement name="orphan-rows" />
+            </ui:Foldout>
+
+            <ui:Foldout name="catalog-foldout" text="Catalog" value="false" class="af-section">
+                <ui:Label class="af-help" text="Drag an entry into the scene view to add it to the map as a user/ object." />
+                <ui:VisualElement name="catalog-rows" />
+            </ui:Foldout>
+
+        </ui:ScrollView>
+    </ui:VisualElement>
+</ui:UXML>

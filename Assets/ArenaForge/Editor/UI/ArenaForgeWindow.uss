@@ -1,0 +1,146 @@
+.af-root {
+    flex-grow: 1;
+    padding: 6px;
+}
+
+.af-section {
+    margin-bottom: 8px;
+}
+
+.af-help {
+    white-space: normal;
+    opacity: 0.65;
+    font-size: 11px;
+    margin: 2px 2px 4px 2px;
+}
+
+.af-empty {
+    padding: 8px;
+}
+
+.af-status {
+    white-space: normal;
+    color: rgb(255, 150, 120);
+    margin-bottom: 4px;
+}
+
+.af-buttons {
+    flex-direction: row;
+    margin-bottom: 4px;
+}
+
+.af-buttons > Button {
+    flex-grow: 1;
+}
+
+.af-verdict {
+    -unity-font-style: bold;
+    margin: 2px 2px 4px 2px;
+}
+
+.af-pass {
+    color: rgb(120, 200, 130);
+}
+
+.af-fail {
+    color: rgb(240, 120, 110);
+}
+
+/* One metric: name, measured value, the threshold it is judged against, verdict. */
+.af-metric {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 2px;
+}
+
+.af-metric-name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.af-metric-value {
+    width: 64px;
+    -unity-text-align: middle-right;
+    -unity-font-style: bold;
+}
+
+.af-metric-threshold {
+    width: 118px;
+    -unity-text-align: middle-right;
+    opacity: 0.65;
+}
+
+.af-metric-verdict {
+    width: 40px;
+    -unity-text-align: middle-right;
+}
+
+.af-heatmap {
+    height: 220px;
+    margin: 4px 2px 2px 2px;
+}
+
+/* The ramp Core documents: deep blue sheltered through to red exposed. */
+.af-ramp {
+    height: 8px;
+    margin: 0 2px;
+    background-image: none;
+    background-color: rgb(13, 26, 115);
+}
+
+.af-ramp-labels {
+    flex-direction: row;
+    justify-content: space-between;
+    margin: 0 2px 2px 2px;
+}
+
+.af-ramp-labels > Label {
+    font-size: 10px;
+    opacity: 0.65;
+}
+
+/* One override, or one orphan: what it does, and the button that undoes the decision. */
+.af-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 2px;
+}
+
+.af-row-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.af-row > Button {
+    width: 66px;
+    margin: 0 0 0 2px;
+}
+
+.af-warning .unity-foldout__text {
+    color: rgb(240, 190, 110);
+}
+
+.af-catalog-row {
+    flex-direction: row;
+    align-items: center;
+    padding: 1px 2px;
+    border-bottom-width: 1px;
+    border-bottom-color: rgba(128, 128, 128, 0.15);
+}
+
+.af-catalog-row:hover {
+    background-color: rgba(128, 160, 255, 0.12);
+}
+
+.af-catalog-id {
+    flex-grow: 1;
+    flex-shrink: 1;
+    overflow: hidden;
+}
+
+.af-catalog-hint {
+    opacity: 0.5;
+    font-size: 10px;
+}
