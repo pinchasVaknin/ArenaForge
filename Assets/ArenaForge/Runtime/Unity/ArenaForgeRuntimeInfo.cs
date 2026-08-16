@@ -14,7 +14,7 @@ namespace ArenaForge.Unity
         /// </summary>
         public static string Describe()
         {
-            return $"ArenaForge adapter, Core schema {CoreInfo.SchemaVersion}, Unity {Application.unityVersion}";
+            return $"ArenaForge adapter, Core schema {WorldDoc.CurrentSchemaVersion}, Unity {Application.unityVersion}";
         }
     }
 }

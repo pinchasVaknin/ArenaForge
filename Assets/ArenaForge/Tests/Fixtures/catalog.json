@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "logicalId": "cover/high/barrier_concrete_01",
+      "tags": [
+        "cover",
+        "cover/high",
+        "concrete"
+      ],
+      "footprint": {
+        "minX": -1.0,
+        "minZ": -0.25,
+        "maxX": 1.0,
+        "maxZ": 0.25
+      },
+      "height": 1.8,
+      "weight": 1.0
+    },
+    {
+      "logicalId": "cover/low/crate_wood_01",
+      "tags": [
+        "cover",
+        "cover/low",
+        "wood"
+      ],
+      "footprint": {
+        "minX": -0.5,
+        "minZ": -0.5,
+        "maxX": 0.5,
+        "maxZ": 0.5
+      },
+      "height": 1.0,
+      "weight": 3.0,
+      "sockets": [
+        {
+          "name": "top",
+          "tags": [
+            "prop_surface"
+          ],
+          "pose": {
+            "position": {
+              "x": 0.0,
+              "y": 1.0,
+              "z": 0.0
+            },
+            "rotation": {
+              "x": 0.0,
+              "y": 0.0,
+              "z": 0.0,
+              "w": 1.0
+            },
+            "scale": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "logicalId": "cover/low/sandbags_01",
+      "tags": [
+        "cover",
+        "cover/low",
+        "fabric"
+      ],
+      "footprint": {
+        "minX": -1.0,
+        "minZ": -0.5,
+        "maxX": 1.0,
+        "maxZ": 0.5
+      },
+      "height": 0.9,
+      "weight": 2.0
+    },
+    {
+      "logicalId": "marker/spawn",
+      "tags": [
+        "marker",
+        "spawn"
+      ],
+      "footprint": {
+        "minX": -1.0,
+        "minZ": -1.0,
+        "maxX": 1.0,
+        "maxZ": 1.0
+      },
+      "height": 0.5,
+      "weight": 1.0
+    },
+    {
+      "logicalId": "structure/building/two_storey_01",
+      "tags": [
+        "structure",
+        "structure/building"
+      ],
+      "footprint": {
+        "minX": -6.0,
+        "minZ": -5.0,
+        "maxX": 6.0,
+        "maxZ": 5.0
+      },
+      "height": 6.0,
+      "weight": 1.0
+    },
+    {
+      "logicalId": "structure/house/small_01",
+      "tags": [
+        "structure",
+        "structure/house"
+      ],
+      "footprint": {
+        "minX": -4.0,
+        "minZ": -3.0,
+        "maxX": 4.0,
+        "maxZ": 3.0
+      },
+      "height": 3.5,
+      "weight": 1.0
+    }
+  ]
+}
