@@ -116,9 +116,33 @@ namespace ArenaForge.Editor
             DestroyTexture(ref _rampTexture);
         }
 
+        /// <summary>
+        /// Loads one of the window's own assets, importing it first if the asset database has not
+        /// picked it up yet.
+        /// </summary>
+        /// <remarks>
+        /// A package unpacked into <c>Library/PackageCache</c> is not always imported by the time
+        /// something asks for its contents: the first resolution after a git-URL install races the
+        /// importer, and the asset comes back null for a file that is sitting on disk. Importing on
+        /// demand turns that into a slightly slower first open rather than a window with no markup
+        /// in it. A path that is simply wrong still comes back null, so this hides a race without
+        /// hiding a mistake.
+        /// </remarks>
+        internal static T LoadAsset<T>(string path) where T : Object
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            if (asset == null)
+            {
+                AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
+                asset = AssetDatabase.LoadAssetAtPath<T>(path);
+            }
+
+            return asset;
+        }
+
         void CreateGUI()
         {
-            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(UxmlPath);
+            var tree = LoadAsset<VisualTreeAsset>(UxmlPath);
             if (tree == null)
             {
                 rootVisualElement.Add(new Label($"ArenaForge: {UxmlPath} is missing."));
@@ -127,7 +151,7 @@ namespace ArenaForge.Editor
 
             tree.CloneTree(rootVisualElement);
 
-            var style = AssetDatabase.LoadAssetAtPath<StyleSheet>(UssPath);
+            var style = LoadAsset<StyleSheet>(UssPath);
             if (style != null)
             {
                 rootVisualElement.styleSheets.Add(style);

@@ -35,7 +35,7 @@ segment-versus-rectangle intersection — no physics, no colliders, no loaded sc
 flowchart TD
     E["<b>Editor</b><br/>ArenaForgeWindow · ArenaEditCapture · ExposureHeatmap<br/><i>tool window, scene capture, Undo, overlay</i>"]
     U["<b>Unity adapter</b><br/>ArenaMap · WorldRealizer · CatalogAsset · ArenaObjectRef<br/><i>logical id → prefab, document → GameObjects</i>"]
-    C["<b>Core</b> — pure C#, no UnityEngine<br/>WorldDoc · ArenaLayoutGenerator · CoverPlacer · ConstraintSet · MapAnalyzer · Rng<br/><i>data model, generation, constraints, validation, serialisation</i>"]
+    C["<b>Core</b> — no UnityEngine, no UnityEditor<br/>WorldDoc · ArenaLayoutGenerator · CoverPlacer · ConstraintSet · MapAnalyzer · Rng<br/><i>data model, generation, constraints, validation, serialisation</i>"]
     N["Newtonsoft.Json"]
 
     E --> U

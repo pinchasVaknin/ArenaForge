@@ -1,6 +1,5 @@
 using ArenaForge.Editor;
 using NUnit.Framework;
-using UnityEditor;
 using UnityEngine.UIElements;
 
 namespace ArenaForge.Tests
@@ -10,17 +9,24 @@ namespace ArenaForge.Tests
     /// compiler.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// This exists because it broke exactly once, in the way this kind of thing always breaks: the
     /// package was restructured, the files moved, and the two path constants did not. Everything
     /// still compiled and every other test still passed — the only symptom was a tool window with
     /// nothing in it, which no automated check would have noticed.
+    /// </para>
+    /// <para>
+    /// It loads through <see cref="ArenaForgeWindow.LoadAsset{T}"/> rather than calling the asset
+    /// database directly, so what is asserted is the path the window actually takes, import
+    /// fallback included.
+    /// </para>
     /// </remarks>
     public sealed class EditorWindowAssetTests
     {
         [Test]
         public void TheWindowsMarkupResolvesAtThePathTheWindowLooksFor()
         {
-            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(ArenaForgeWindow.UxmlPath);
+            var tree = ArenaForgeWindow.LoadAsset<VisualTreeAsset>(ArenaForgeWindow.UxmlPath);
 
             Assert.That(tree, Is.Not.Null, $"no VisualTreeAsset at {ArenaForgeWindow.UxmlPath}");
         }
@@ -28,7 +34,7 @@ namespace ArenaForge.Tests
         [Test]
         public void TheWindowsStylesheetResolvesAtThePathTheWindowLooksFor()
         {
-            var style = AssetDatabase.LoadAssetAtPath<StyleSheet>(ArenaForgeWindow.UssPath);
+            var style = ArenaForgeWindow.LoadAsset<StyleSheet>(ArenaForgeWindow.UssPath);
 
             Assert.That(style, Is.Not.Null, $"no StyleSheet at {ArenaForgeWindow.UssPath}");
         }
@@ -36,7 +42,7 @@ namespace ArenaForge.Tests
         [Test]
         public void TheMarkupCarriesEveryElementTheWindowLooksUpByName()
         {
-            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(ArenaForgeWindow.UxmlPath);
+            var tree = ArenaForgeWindow.LoadAsset<VisualTreeAsset>(ArenaForgeWindow.UxmlPath);
             var root = new VisualElement();
             tree.CloneTree(root);
 
