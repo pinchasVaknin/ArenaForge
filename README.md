@@ -113,7 +113,7 @@ transform entry and the document change come back together on a single Ctrl+Z.
 Unity 6 (6000.0 or newer). In **Window → Package Manager → + → Install package from git URL**:
 
 ```
-https://github.com/pinchasvaknin/ArenaForge.git?path=/Packages/com.pinchasvaknin.arenaforge
+https://github.com/pinchasVaknin/ArenaForge.git?path=/Packages/com.pinchasvaknin.arenaforge
 ```
 
 The `?path=` suffix is required — the package lives in a subfolder of the repo, not at its root.

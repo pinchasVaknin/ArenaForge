@@ -33,4 +33,4 @@ First release.
   captured as overrides; an override list with per-row revert; orphaned overrides surfaced with
   keep and discard actions; and every mutation grouped into one named Undo step.
 
-[0.1.0]: https://github.com/pinchasvaknin/ArenaForge/releases/tag/v0.1.0
+[0.1.0]: https://github.com/pinchasVaknin/ArenaForge/releases/tag/v0.1.0
