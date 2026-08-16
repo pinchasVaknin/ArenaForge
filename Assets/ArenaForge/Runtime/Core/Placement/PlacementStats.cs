@@ -75,6 +75,49 @@ namespace ArenaForge.Core
         }
 
         /// <summary>
+        /// Reads a tally back out of a metadata dictionary written by <see cref="WriteTo"/>.
+        /// </summary>
+        /// <remarks>
+        /// The analysis layer measures a document, not a generator run, so the statistics have to
+        /// come back from where the generator left them. Missing or unreadable keys read as zero:
+        /// a document written by a catalog with no cover in it has no tally to recover, and that is
+        /// a fact about the map rather than a corrupt file.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+        public static PlacementStats ReadFrom(IDictionary<string, string> metadata, string prefix)
+        {
+            if (metadata == null)
+            {
+                throw new ArgumentNullException(nameof(metadata));
+            }
+
+            if (prefix == null)
+            {
+                throw new ArgumentNullException(nameof(prefix));
+            }
+
+            var stats = new PlacementStats
+            {
+                Attempted = ReadCount(metadata, prefix + "attempted"),
+                Accepted = ReadCount(metadata, prefix + "accepted"),
+            };
+
+            for (int i = 0; i < stats._rejections.Length; i++)
+            {
+                stats._rejections[i] =
+                    ReadCount(metadata, prefix + "rejected_" + MetadataName((ConstraintKind)i));
+            }
+
+            return stats;
+        }
+
+        static int ReadCount(IDictionary<string, string> metadata, string key) =>
+            metadata.TryGetValue(key, out string text) &&
+            int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                ? value
+                : 0;
+
+        /// <summary>
         /// The metadata key fragment naming a constraint kind, in the lower-case style the rest of
         /// the document's keys use.
         /// </summary>
