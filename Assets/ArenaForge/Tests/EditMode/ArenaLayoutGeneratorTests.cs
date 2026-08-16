@@ -24,38 +24,14 @@ namespace ArenaForge.Tests
         static PlacedObject Single(WorldDoc doc, string tag) =>
             doc.GeneratedObjects.Single(o => o.Tags.Contains(tag));
 
-        static CatalogEntry EntryFor(Catalog catalog, string logicalId) =>
-            catalog.Entries.Single(e => e.LogicalId == logicalId);
-
-        /// <summary>
-        /// The world-space footprint of a placed object. Recovering the rotation from the pose only
-        /// works because placement is restricted to the quarter-turn table.
-        /// </summary>
-        static Rect2 WorldFootprint(PlacedObject placed, Catalog catalog)
-        {
-            int turns = -1;
-            for (int i = 0; i < QuarterTurn.Count; i++)
-            {
-                if (QuarterTurn.Rotation(i) == placed.Pose.Rotation)
-                {
-                    turns = i;
-                }
-            }
-
-            Assert.That(turns, Is.GreaterThanOrEqualTo(0),
-                $"{placed.StableId} is rotated off the quarter-turn table: {placed.Pose.Rotation}");
-
-            return QuarterTurn
-                .Rotate(EntryFor(catalog, placed.LogicalId).Footprint, turns)
-                .Translated(placed.Pose.Position.Xz);
-        }
+        static Rect2 WorldFootprint(PlacedObject placed, Catalog catalog) =>
+            PlacedGeometry.WorldFootprint(placed, catalog);
 
         [Test]
         public void AMapHasTwoSpawnMarkersAndTwoStructures()
         {
             WorldDoc doc = Generate(20260816UL);
 
-            Assert.That(doc.GeneratedObjects.Count, Is.EqualTo(4));
             Assert.That(doc.GeneratedObjects.Select(o => o.StableId), Is.Unique);
             Assert.That(doc.Overrides, Is.Empty);
             Assert.That(doc.Parameters.Seed, Is.EqualTo(20260816UL));
@@ -84,9 +60,11 @@ namespace ArenaForge.Tests
         [Test]
         public void AGeneratedMapResolvesWithNoOrphans()
         {
-            ResolvedWorld resolved = Generate(42UL).Resolve();
+            WorldDoc doc = Generate(42UL);
 
-            Assert.That(resolved.Objects.Count, Is.EqualTo(4));
+            ResolvedWorld resolved = doc.Resolve();
+
+            Assert.That(resolved.Objects.Count, Is.EqualTo(doc.GeneratedObjects.Count));
             Assert.That(resolved.OrphanedOverrides, Is.Empty);
         }
 
@@ -183,6 +161,8 @@ namespace ArenaForge.Tests
 
                 foreach (PlacedObject structure in Structures(ArenaLayoutGenerator.Generate(parameters, catalog)))
                 {
+                    Assert.That(PlacedGeometry.YawSteps(structure) % (YawStep.Count / QuarterTurn.Count),
+                        Is.EqualTo(0), $"seed {seed}: {structure.StableId} is off the quarter turns");
                     Assert.That(layout.Grid.IsOnGrid(structure.Pose.Position.Xz), Is.True,
                         $"seed {seed}: {structure.StableId} at {structure.Pose.Position} is off the grid");
                     Assert.That(structure.Pose.Position.Y, Is.EqualTo(0f), "structures sit on the ground");

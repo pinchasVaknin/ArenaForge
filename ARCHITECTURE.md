@@ -121,7 +121,41 @@ byte-identical serialised documents.
 
 ---
 
-## 5. Assembly layout
+## 5. Placement is a search under named rules
+
+Cover is not placed, it is *proposed* and then judged. A candidate — a logical id and a pose — is
+tested against a `ConstraintSet`, which answers with either an acceptance or the first rule that
+refused it. Nothing reaches a world document without having been accepted.
+
+The rules are a closed set of eight: inside the playfield, within a lane, on the grid, no overlap
+within a margin, a minimum and a maximum distance from anything carrying a tag, not blocking a
+doorway, clear of a spawn. They are an enum and a switch, not an interface with eight
+implementations and not a rule language. Every one of them is known here, Core is the only thing
+that evaluates them, and a ninth would be a change to one switch. An extension point would be a
+guess about a caller that does not exist.
+
+**The refusal is kept, not reduced to a boolean.** It is the only useful thing to say about a
+placement that did not happen, and it is what the placement statistics in the document report:
+`cover_rejected_no_overlap: 157` says a map is saturated, where a bare count of failures says only
+that something went wrong.
+
+**The sampler and the rules are kept deliberately in step.** Positions come from Poisson-disk
+sampling over the cells a `PlacementGrid` still has open, and that grid claims exactly what the
+constraints enforce — a structure's footprint plus its clearance, a spawn plus its apron, a
+doorway plus the room to walk through it — grown by the reach of the *smallest* prop in the
+catalog. Sizing that margin for the smallest rather than the largest is the difference between a
+sampler that offers only certainties and one that offers everything worth trying: a gap that a
+barrier cannot use may still take a crate, and the retry that swaps one for the other is the
+placer's main way of filling a map. The grid is a hint. The constraint set decides.
+
+The sampler asks for more positions than the target needs and shuffles them before trying any,
+because Bridson's algorithm grows outward from its first sample: taking its output in order would
+crowd the props around wherever that first sample fell. It also reseeds when its frontier dies
+rather than stopping, so a lane a building has cut in two is filled on both sides of the building.
+
+---
+
+## 6. Assembly layout
 
 ```
 Assets/ArenaForge/

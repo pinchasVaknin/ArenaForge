@@ -375,6 +375,9 @@ MonoBehaviour:
   _laneCount: 3
   _gridSize: 1
   _structureDensity: 1
+  _coverDensity: 1
+  _lowToHighCoverRatio: 2
+  _fineCoverRotation: 0
   _generateOnStart: 1
 --- !u!114 &1309333954
 MonoBehaviour:

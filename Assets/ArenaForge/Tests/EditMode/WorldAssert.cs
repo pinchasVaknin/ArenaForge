@@ -20,6 +20,12 @@ namespace ArenaForge.Tests
             Assert.That(actual.Parameters.LaneCount, Is.EqualTo(expected.Parameters.LaneCount));
             Assert.That(actual.Parameters.GridSize, Is.EqualTo(expected.Parameters.GridSize));
             Assert.That(actual.Parameters.StructureDensity, Is.EqualTo(expected.Parameters.StructureDensity));
+            Assert.That(actual.Parameters.CoverDensity, Is.EqualTo(expected.Parameters.CoverDensity));
+            Assert.That(actual.Parameters.LowToHighCoverRatio,
+                Is.EqualTo(expected.Parameters.LowToHighCoverRatio));
+            Assert.That(actual.Parameters.FineCoverRotation, Is.EqualTo(expected.Parameters.FineCoverRotation));
+
+            AreDeepEqual(expected.Metadata, actual.Metadata, "metadata");
 
             Assert.That(actual.GeneratedObjects.Count, Is.EqualTo(expected.GeneratedObjects.Count),
                 "generated object count");
@@ -79,6 +85,21 @@ namespace ArenaForge.Tests
                     Assert.That(b.Sockets[s].LocalPose, Is.EqualTo(a.Sockets[s].LocalPose),
                         $"{where}.sockets[{s}].pose");
                 }
+            }
+        }
+
+        // Two overloads because a world's metadata is writable and a placed object's is not, and
+        // IDictionary and IReadOnlyDictionary share no common ancestor worth naming.
+        static void AreDeepEqual(
+            IDictionary<string, string> expected,
+            IDictionary<string, string> actual,
+            string where)
+        {
+            Assert.That(actual.Count, Is.EqualTo(expected.Count), $"{where} count");
+            foreach (KeyValuePair<string, string> pair in expected)
+            {
+                Assert.That(actual.ContainsKey(pair.Key), $"{where} is missing '{pair.Key}'");
+                Assert.That(actual[pair.Key], Is.EqualTo(pair.Value), $"{where}['{pair.Key}']");
             }
         }
 

@@ -35,6 +35,20 @@ namespace ArenaForge.Samples
         float _structureDensity = 1f;
 
         [SerializeField]
+        [Min(0f)]
+        [Tooltip("How much cover to scatter, as a multiple of the baseline density.")]
+        float _coverDensity = 1f;
+
+        [SerializeField]
+        [Min(0f)]
+        [Tooltip("Pieces of low cover per piece of high cover.")]
+        float _lowToHighCoverRatio = 2f;
+
+        [SerializeField]
+        [Tooltip("Rotate cover to fifteen-degree steps instead of quarter turns.")]
+        bool _fineCoverRotation;
+
+        [SerializeField]
         bool _generateOnStart = true;
 
         /// <summary>Seed the map is generated from.</summary>
@@ -71,6 +85,9 @@ namespace ArenaForge.Samples
             LaneCount = _laneCount,
             GridSize = _gridSize,
             StructureDensity = _structureDensity,
+            CoverDensity = _coverDensity,
+            LowToHighCoverRatio = _lowToHighCoverRatio,
+            FineCoverRotation = _fineCoverRotation,
         };
 
         void Start()

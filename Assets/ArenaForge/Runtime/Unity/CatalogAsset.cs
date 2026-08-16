@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using ArenaForge.Core;
 using UnityEngine;
+using CorePose = ArenaForge.Core.Pose;
 
 namespace ArenaForge.Unity
 {
@@ -18,6 +19,27 @@ namespace ArenaForge.Unity
     [CreateAssetMenu(menuName = "ArenaForge/Catalog", fileName = "ArenaCatalog")]
     public sealed class CatalogAsset : ScriptableObject
     {
+        /// <summary>
+        /// A place on a piece of art where a smaller prop may be put — the top of a crate, a
+        /// window ledge.
+        /// </summary>
+        /// <remarks>
+        /// A position and no rotation, because a surface is a place rather than a direction: the
+        /// prop that lands on it inherits the parent's own rotation and nothing else.
+        /// </remarks>
+        [Serializable]
+        public sealed class SocketRow
+        {
+            /// <summary>Socket name, unique within its row. Forms part of a child object's stable id.</summary>
+            public string Name;
+
+            /// <summary>What may attach here — <c>prop_surface</c> is the one the generator looks for.</summary>
+            public string[] Tags;
+
+            /// <summary>Where the socket sits in the prefab's local space, in metres.</summary>
+            public Vector3 LocalPosition;
+        }
+
         /// <summary>One piece of art: what Core knows about it, and what to instantiate for it.</summary>
         [Serializable]
         public sealed class Row
@@ -36,6 +58,9 @@ namespace ArenaForge.Unity
 
             /// <summary>Relative likelihood of being chosen by a weighted pick. Must be positive.</summary>
             public float Weight = 1f;
+
+            /// <summary>Attachment points this piece of art offers.</summary>
+            public List<SocketRow> Sockets = new List<SocketRow>();
 
             /// <summary>What to instantiate. The pivot sits at ground level, centred on the footprint.</summary>
             public GameObject Prefab;
@@ -85,7 +110,7 @@ namespace ArenaForge.Unity
                     Rect2.FromCenterSize(Vec2.Zero, new Vec2(row.FootprintSize.x, row.FootprintSize.y)),
                     row.Height,
                     row.Weight,
-                    null);
+                    ToSockets(row));
             }
 
             try
@@ -96,6 +121,33 @@ namespace ArenaForge.Unity
             {
                 throw new InvalidOperationException($"Catalog '{name}' is not valid: {error.Message}", error);
             }
+        }
+
+        static CatalogSocket[] ToSockets(Row row)
+        {
+            if (row.Sockets == null || row.Sockets.Count == 0)
+            {
+                return null;
+            }
+
+            var sockets = new CatalogSocket[row.Sockets.Count];
+            for (int i = 0; i < row.Sockets.Count; i++)
+            {
+                SocketRow socket = row.Sockets[i];
+                if (socket == null || string.IsNullOrWhiteSpace(socket.Name))
+                {
+                    throw new InvalidOperationException(
+                        $"Row '{row.LogicalId}' has a socket with no name.");
+                }
+
+                sockets[i] = new CatalogSocket(
+                    socket.Name,
+                    socket.Tags ?? Array.Empty<string>(),
+                    CorePose.At(new Vec3(
+                        socket.LocalPosition.x, socket.LocalPosition.y, socket.LocalPosition.z)));
+            }
+
+            return sockets;
         }
 
         /// <summary>

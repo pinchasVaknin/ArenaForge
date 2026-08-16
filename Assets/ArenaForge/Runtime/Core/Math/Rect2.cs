@@ -94,6 +94,22 @@ namespace ArenaForge.Core
         public bool Overlaps(Rect2 other) =>
             MinX < other.MaxX && other.MinX < MaxX && MinZ < other.MaxZ && other.MinZ < MaxZ;
 
+        /// <summary>
+        /// Shortest distance between two rectangles, or zero if they touch or overlap.
+        /// </summary>
+        /// <remarks>
+        /// Edge to edge rather than centre to centre, because the callers are clearance rules:
+        /// "keep a metre and a half of floor clear around this building" is a fact about the
+        /// building's walls, and a centre-to-centre measure would mean something different for a
+        /// hut and for a warehouse.
+        /// </remarks>
+        public static float Distance(Rect2 a, Rect2 b)
+        {
+            float dx = MathF.Max(0f, MathF.Max(a.MinX - b.MaxX, b.MinX - a.MaxX));
+            float dz = MathF.Max(0f, MathF.Max(a.MinZ - b.MaxZ, b.MinZ - a.MaxZ));
+            return MathF.Sqrt(dx * dx + dz * dz);
+        }
+
         /// <summary>Copy grown by <paramref name="margin"/> on every side. A negative margin shrinks.</summary>
         public Rect2 Expanded(float margin) =>
             new Rect2(MinX - margin, MinZ - margin, MaxX + margin, MaxZ + margin);

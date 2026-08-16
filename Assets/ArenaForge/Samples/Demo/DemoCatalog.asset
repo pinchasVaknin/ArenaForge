@@ -20,6 +20,7 @@ MonoBehaviour:
     FootprintSize: {x: 4, y: 4}
     Height: 0.25
     Weight: 1
+    Sockets: []
     Prefab: {fileID: 954349860112856809, guid: b26a28a2e9156974da18a0aea8e90046, type: 3}
   - LogicalId: structure/building/two_storey_01
     Tags:
@@ -28,6 +29,7 @@ MonoBehaviour:
     FootprintSize: {x: 12, y: 10}
     Height: 6
     Weight: 1
+    Sockets: []
     Prefab: {fileID: 4217152220903151872, guid: 13388bb0b6ac47f439672060eb2fc863, type: 3}
   - LogicalId: structure/house/small_01
     Tags:
@@ -36,4 +38,39 @@ MonoBehaviour:
     FootprintSize: {x: 8, y: 6}
     Height: 3.5
     Weight: 1
+    Sockets: []
     Prefab: {fileID: 8624264472683776568, guid: 5a7b225aa02bd6047adda3ab393650d3, type: 3}
+  - LogicalId: cover/low/crate_wood_01
+    Tags:
+    - cover
+    - cover/low
+    - wood
+    FootprintSize: {x: 1, y: 1}
+    Height: 1
+    Weight: 3
+    Sockets:
+    - Name: top
+      Tags:
+      - prop_surface
+      LocalPosition: {x: 0, y: 1, z: 0}
+    Prefab: {fileID: 1045925931925925926, guid: 8f0841f5d662497ca9a36c48dd73ca31, type: 3}
+  - LogicalId: cover/low/sandbags_01
+    Tags:
+    - cover
+    - cover/low
+    - fabric
+    FootprintSize: {x: 2, y: 1}
+    Height: 0.9
+    Weight: 2
+    Sockets: []
+    Prefab: {fileID: 1168395083728395062, guid: 8d93de60c188425eaaec4b9462c4e7f7, type: 3}
+  - LogicalId: cover/high/barrier_concrete_01
+    Tags:
+    - cover
+    - cover/high
+    - concrete
+    FootprintSize: {x: 2, y: 0.5}
+    Height: 1.8
+    Weight: 1
+    Sockets: []
+    Prefab: {fileID: 1290864235530864198, guid: 28051fd6e7b644609c9f305806ad44c9, type: 3}

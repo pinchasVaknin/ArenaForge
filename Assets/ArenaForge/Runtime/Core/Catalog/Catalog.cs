@@ -65,6 +65,46 @@ namespace ArenaForge.Core
         public IReadOnlyList<CatalogEntry> Entries => _entries;
 
         /// <summary>
+        /// The entry with this logical id, or null if the catalog does not carry one.
+        /// </summary>
+        /// <remarks>
+        /// A binary search over the sorted entries. This is how a stage that has already placed
+        /// something gets back to the art it placed — socket resolution reads a parent's sockets
+        /// off the entry its logical id names.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="logicalId"/> is null.</exception>
+        public CatalogEntry Find(string logicalId)
+        {
+            if (logicalId == null)
+            {
+                throw new ArgumentNullException(nameof(logicalId));
+            }
+
+            int low = 0;
+            int high = _entries.Count - 1;
+            while (low <= high)
+            {
+                int middle = low + ((high - low) / 2);
+                int order = string.CompareOrdinal(_entries[middle].LogicalId, logicalId);
+                if (order == 0)
+                {
+                    return _entries[middle];
+                }
+
+                if (order < 0)
+                {
+                    low = middle + 1;
+                }
+                else
+                {
+                    high = middle - 1;
+                }
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Entries matching the query, in catalog order. Returns an empty list rather than null
         /// when nothing matches.
         /// </summary>

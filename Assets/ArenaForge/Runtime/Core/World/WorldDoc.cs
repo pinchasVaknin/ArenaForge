@@ -38,6 +38,22 @@ namespace ArenaForge.Core
         public List<EditOverride> Overrides { get; } = new List<EditOverride>();
 
         /// <summary>
+        /// Generator annotations about the document as a whole, as opposed to about one object —
+        /// currently the cover placement statistics.
+        /// </summary>
+        /// <remarks>
+        /// Sorted with an ordinal comparer for the same reason <see cref="PlacedObject.Metadata"/>
+        /// is: this is serialised, and a <c>Dictionary</c> makes no promise about the order it
+        /// enumerates in.
+        /// </remarks>
+        [JsonProperty("metadata", Order = 4)]
+        public IDictionary<string, string> Metadata { get; } =
+            new SortedDictionary<string, string>(StringComparer.Ordinal);
+
+        /// <summary>Suppresses empty metadata in serialised output.</summary>
+        public bool ShouldSerializeMetadata() => Metadata.Count > 0;
+
+        /// <summary>
         /// Applies the overrides to the generated objects and returns the result, together with
         /// any override that could not be applied.
         /// </summary>

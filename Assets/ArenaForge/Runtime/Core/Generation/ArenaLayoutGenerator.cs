@@ -5,13 +5,14 @@ using System.Globalization;
 namespace ArenaForge.Core
 {
     /// <summary>
-    /// Turns parameters and a catalog into the skeleton of a small competitive arena: lane bands,
-    /// two opposing spawns, and the structures that anchor the middle and one flank.
+    /// Turns parameters and a catalog into a small competitive arena: lane bands, two opposing
+    /// spawns, the structures that anchor the middle and one flank, and the cover between them.
     /// </summary>
     /// <remarks>
     /// The shape follows how these maps are actually built. Two spawns at either end, a handful of
     /// roughly parallel routes between them, a strong point of interest in the contested middle
-    /// lane, and something softer on a flank. Cover props are not this stage's job.
+    /// lane, and something softer on a flank. Cover is scattered last, by
+    /// <see cref="CoverPlacer"/>, because it has to place around everything else.
     /// </remarks>
     public static class ArenaLayoutGenerator
     {
@@ -32,6 +33,9 @@ namespace ArenaForge.Core
 
         /// <summary>Tag a catalog entry must carry to be used as a spawn marker.</summary>
         public const string SpawnMarkerTag = "spawn";
+
+        /// <summary>Tag every structure carries, whichever slot it fills.</summary>
+        public const string StructureTag = "structure";
 
         /// <summary>Tag a catalog entry must carry to be used as the middle-lane building.</summary>
         public const string BuildingTag = "structure/building";
@@ -83,7 +87,8 @@ namespace ArenaForge.Core
             var doc = new WorldDoc { Parameters = parameters.Clone() };
 
             EmitSpawnMarkers(doc, layout, catalog);
-            EmitStructures(doc, layout, catalog, parameters);
+            List<Placement> structures = EmitStructures(doc, layout, catalog, parameters);
+            CoverPlacer.Place(doc, layout, catalog, structures);
 
             return doc;
         }
@@ -112,10 +117,13 @@ namespace ArenaForge.Core
                     { SpawnAreaKey, RectMetadata.Format(area) },
                 });
 
-        static void EmitStructures(WorldDoc doc, ArenaLayout layout, Catalog catalog, ArenaParams parameters)
+        /// <summary>The structures placed, with their world footprints, for the cover stage.</summary>
+        static List<Placement> EmitStructures(
+            WorldDoc doc, ArenaLayout layout, Catalog catalog, ArenaParams parameters)
         {
             Rng stream = new Rng(parameters.Seed).Fork("structures");
             var committed = new List<PlacedStructure>(2);
+            var placements = new List<Placement>(2);
 
             ArenaLane middle = layout.Lanes[layout.MiddleLaneIndex];
             float centre = layout.AlongOf(layout.Playfield.Center);
@@ -123,7 +131,7 @@ namespace ArenaForge.Core
 
             CatalogEntry building = SelectStructure(catalog, BuildingTag, middle, parameters, ref stream);
             doc.GeneratedObjects.Add(PlaceStructure(
-                layout, middle, building, centre - reach, centre + reach, committed, ref stream));
+                layout, middle, building, centre - reach, centre + reach, committed, placements, ref stream));
 
             // A flank rather than the middle, so the two structures anchor different routes. A
             // one-lane map has no flank, and the house shares the middle lane with the building.
@@ -133,7 +141,9 @@ namespace ArenaForge.Core
 
             CatalogEntry house = SelectStructure(catalog, HouseTag, flank, parameters, ref stream);
             doc.GeneratedObjects.Add(PlaceStructure(
-                layout, flank, house, betweenSpawnsMin, betweenSpawnsMax, committed, ref stream));
+                layout, flank, house, betweenSpawnsMin, betweenSpawnsMax, committed, placements, ref stream));
+
+            return placements;
         }
 
         static ArenaLane PickFlankLane(ArenaLayout layout, ref Rng rng)
@@ -198,6 +208,7 @@ namespace ArenaForge.Core
             float alongMin,
             float alongMax,
             List<PlacedStructure> committed,
+            List<Placement> placements,
             ref Rng rng)
         {
             float cross = layout.SnapCross(layout.CrossOf(lane.Band.Center));
@@ -218,7 +229,8 @@ namespace ArenaForge.Core
                 }
 
                 float along = layout.SnapAlong(rng.NextRange(low, high));
-                if (TryCommit(layout, lane, entry, local, along, cross, quarterTurns, committed, out PlacedObject placed))
+                if (TryCommit(layout, lane, entry, along, cross, quarterTurns, committed, placements,
+                        out PlacedObject placed))
                 {
                     return placed;
                 }
@@ -238,7 +250,8 @@ namespace ArenaForge.Core
                 for (int step = 0; step <= steps; step++)
                 {
                     float along = low + step * layout.Grid.CellSize;
-                    if (TryCommit(layout, lane, entry, local, along, cross, quarterTurns, committed, out PlacedObject placed))
+                    if (TryCommit(layout, lane, entry, along, cross, quarterTurns, committed, placements,
+                            out PlacedObject placed))
                     {
                         return placed;
                     }
@@ -256,17 +269,18 @@ namespace ArenaForge.Core
             ArenaLayout layout,
             ArenaLane lane,
             CatalogEntry entry,
-            Rect2 local,
             float along,
             float cross,
             int quarterTurns,
             List<PlacedStructure> committed,
+            List<Placement> placements,
             out PlacedObject placed)
         {
             placed = null;
 
             Vec2 position = layout.ToWorld(along, cross);
-            Rect2 world = local.Translated(position);
+            Placement candidate = Placement.AtQuarterTurn(entry, position, quarterTurns);
+            Rect2 world = candidate.Footprint;
 
             if (!layout.Playfield.Contains(world))
             {
@@ -301,12 +315,13 @@ namespace ArenaForge.Core
 
             placed = new PlacedObject(
                 $"map/{lane.Id}/structure_{slot.ToString("00", CultureInfo.InvariantCulture)}",
-                entry.LogicalId,
-                new Pose(position.ToVec3(0f), QuarterTurn.Rotation(quarterTurns), 1f),
-                ToArray(entry.Tags),
+                candidate.LogicalId,
+                candidate.Pose,
+                ToArray(candidate.Tags),
                 metadata);
 
             committed.Add(new PlacedStructure(lane.Id, world));
+            placements.Add(candidate);
             return true;
         }
 

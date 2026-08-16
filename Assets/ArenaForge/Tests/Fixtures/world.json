@@ -8,7 +8,10 @@
     },
     "laneCount": 3,
     "gridSize": 1.0,
-    "structureDensity": 1.0
+    "structureDensity": 1.0,
+    "coverDensity": 1.0,
+    "lowToHighCoverRatio": 2.0,
+    "fineCoverRotation": false
   },
   "generatedObjects": [
     {
