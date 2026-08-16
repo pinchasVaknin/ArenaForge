@@ -1,0 +1,28 @@
+{
+  "name": "com.pinchasvaknin.arenaforge",
+  "version": "0.1.0",
+  "displayName": "ArenaForge",
+  "description": "Procedurally generates small competitive arena maps from a seed, a set of parameters and a layer of manual edits. Move a crate by hand, change a parameter, regenerate, and the crate stays where you put it. Includes a validation pass that measures sightlines, cover coverage, spawn fairness and connectivity, so a generated map can be judged rather than just looked at.",
+  "unity": "6000.0",
+  "license": "MIT",
+  "author": {
+    "name": "Pinchas Vaknin"
+  },
+  "keywords": [
+    "procedural",
+    "generation",
+    "level-design",
+    "editor-tool",
+    "arena"
+  ],
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
+  },
+  "samples": [
+    {
+      "displayName": "Arena Demo",
+      "description": "A playfield, a free-fly camera and a catalog of primitive placeholder prefabs, with a map generated on play. Needs the Universal Render Pipeline and the Input System, which the tool itself does not.",
+      "path": "Samples~/ArenaDemo"
+    }
+  ]
+}

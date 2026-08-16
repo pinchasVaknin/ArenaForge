@@ -1,7 +1,6 @@
 using UnityEngine;
 using CorePose = ArenaForge.Core.Pose;
 using CoreQuat = ArenaForge.Core.Quat;
-using CoreVec2 = ArenaForge.Core.Vec2;
 using CoreVec3 = ArenaForge.Core.Vec3;
 
 namespace ArenaForge.Unity
@@ -18,9 +17,6 @@ namespace ArenaForge.Unity
     {
         /// <summary>Converts a Core vector to a Unity one.</summary>
         public static Vector3 ToUnity(CoreVec3 value) => new Vector3(value.X, value.Y, value.Z);
-
-        /// <summary>Converts a Core ground-plane coordinate to a Unity vector at the given height.</summary>
-        public static Vector3 ToUnity(CoreVec2 value, float height) => new Vector3(value.X, height, value.Y);
 
         /// <summary>Converts a Core rotation to a Unity one.</summary>
         public static Quaternion ToUnity(CoreQuat value) =>

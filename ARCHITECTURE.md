@@ -185,16 +185,23 @@ warning list with explicit keep and discard actions, per section 2; the tool nev
 ## 7. Assembly layout
 
 ```
-Assets/ArenaForge/
-  Runtime/Core/     ArenaForge.Core.asmdef      noEngineReferences, Newtonsoft only
-  Runtime/Unity/    ArenaForge.Unity.asmdef     → Core
-  Editor/           ArenaForge.Editor.asmdef    → Core, Unity; Editor platform only
-  Tests/EditMode/   ArenaForge.Tests.asmdef     → Core, Unity; NUnit; UNITY_INCLUDE_TESTS
-  Samples/          ArenaForge.Samples.asmdef   → Core, Unity, Input System
+Packages/com.pinchasvaknin.arenaforge/
+  package.json
+  Runtime/Core/       ArenaForge.Core.asmdef      noEngineReferences, Newtonsoft only
+  Runtime/Unity/      ArenaForge.Unity.asmdef     → Core
+  Editor/             ArenaForge.Editor.asmdef    → Core, Unity; Editor platform only
+  Tests/EditMode/     ArenaForge.Tests.asmdef     → Core, Unity, Editor; NUnit; UNITY_INCLUDE_TESTS
+  Samples~/ArenaDemo/ ArenaForge.Samples.asmdef   → Core, Unity, Input System
 ```
 
-`Samples/` holds the demo scene and the two scripts that drive it. It is a fifth assembly rather than
-loose scripts so the demo cannot become something the tool depends on: nothing references it, and
-deleting the folder leaves the tool intact.
+`Samples~/` holds the demo scene, its placeholder prefabs and the two scripts that drive it. The
+tilde keeps it out of the asset database until Package Manager copies it into a project, which is
+also what stops the demo from becoming something the tool depends on: nothing references that
+assembly, and deleting the folder leaves the tool intact. It is the only part of the package that
+needs URP and the Input System.
 
-Unity 6 (6000.3.11f1), URP, `com.unity.nuget.newtonsoft-json`.
+Tests ship inside the package rather than beside it, so a consumer can run them against their own
+Unity version by adding the package to `testables` in their project manifest.
+
+Unity 6 (6000.3.11f1 during development, `6000.0` declared as the minimum),
+`com.unity.nuget.newtonsoft-json` as the only dependency.

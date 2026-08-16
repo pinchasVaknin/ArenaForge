@@ -1,7 +1,8 @@
 # The generate / edit / regenerate loop
 
 The four frames in this folder are the loop the tool exists for, captured from the demo scene
-(`Assets/ArenaForge/Samples/DemoArena.unity`) looking straight down at the 60 × 60 m playfield.
+(`Samples~/ArenaDemo/DemoArena.unity` in the package; `Assets/Samples/ArenaForge/0.1.0/Arena Demo/`
+once imported) looking straight down at the 60 × 60 m playfield.
 Blue squares are the two spawns, grey is the two-storey building, tan is the house, and the small
 orange and olive blocks are low and high cover.
 
@@ -36,8 +37,8 @@ These are stills because they were captured headlessly. The animated capture the
 the window on one side, the scene view on the other, a prop dragged and the seed changed — has to
 be recorded from a running editor:
 
-1. Open `DemoArena.unity` and `Window → ArenaForge → Arena Forge`. The window binds to the
-   `ArenaForge Demo Map` object in the scene.
+1. Import the **Arena Demo** sample from Package Manager, open its `DemoArena.unity`, and open
+   `Window → ArenaForge → Arena Forge`. The window binds to the `ArenaForge Demo Map` object.
 2. Press **Generate**, then drag a crate a few metres in the scene view. Watch the override count
    go to 1 and the validation panel re-measure.
 3. Press the **↻** button beside the seed, then **Regenerate (keep edits)**.

@@ -1,5 +1,13 @@
 {
   "dependencies": {
+    "com.pinchasvaknin.arenaforge": {
+      "version": "file:com.pinchasvaknin.arenaforge",
+      "depth": 0,
+      "source": "embedded",
+      "dependencies": {
+        "com.unity.nuget.newtonsoft-json": "3.2.2"
+      }
+    },
     "com.unity.2d.sprite": {
       "version": "1.0.0",
       "depth": 0,

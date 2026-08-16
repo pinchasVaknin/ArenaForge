@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using ArenaForge.Core;
 using NUnit.Framework;
 
@@ -14,12 +13,19 @@ namespace ArenaForge.Tests
     /// </summary>
     static class TestWorlds
     {
+        const string FixtureFolder = "Packages/com.pinchasvaknin.arenaforge/Tests/Fixtures";
+
+        /// <remarks>
+        /// Through the asset database rather than the file system, because a package installed from
+        /// a git URL lives in <c>Library/PackageCache</c> under a hashed folder name and there is no
+        /// <c>Packages/…</c> path on disk to open. Unity resolves the logical path either way.
+        /// </remarks>
         public static string ReadFixture(string fileName)
         {
-            string path = Path.Combine(
-                UnityEngine.Application.dataPath, "ArenaForge", "Tests", "Fixtures", fileName);
-            Assert.That(File.Exists(path), $"Missing fixture: {path}");
-            return File.ReadAllText(path);
+            string path = FixtureFolder + "/" + fileName;
+            var asset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.TextAsset>(path);
+            Assert.That(asset, Is.Not.Null, $"Missing fixture: {path}");
+            return asset.text;
         }
 
         /// <summary>

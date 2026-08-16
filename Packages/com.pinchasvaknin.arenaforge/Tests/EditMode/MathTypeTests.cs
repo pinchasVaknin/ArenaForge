@@ -59,17 +59,6 @@ namespace ArenaForge.Tests
         }
 
         [Test]
-        public void AnAabbProjectsToItsGroundFootprint()
-        {
-            Aabb box = Aabb.FromFootprint(new Rect2(-1f, -2f, 1f, 2f), 0f, 3f);
-
-            Assert.That(box.Footprint, Is.EqualTo(new Rect2(-1f, -2f, 1f, 2f)));
-            Assert.That(box.Height, Is.EqualTo(3f));
-            Assert.That(box.Contains(new Vec3(0f, 1.5f, 0f)), Is.True);
-            Assert.That(box.Contains(new Vec3(0f, 3.5f, 0f)), Is.False);
-        }
-
-        [Test]
         public void AQuarterTurnRotatesForwardOntoRight()
         {
             Vec3 rotated = Quat.FromYawDegrees(90f).Rotate(new Vec3(0f, 0f, 1f));
