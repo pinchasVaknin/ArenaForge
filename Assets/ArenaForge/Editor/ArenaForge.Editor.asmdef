@@ -1,0 +1,19 @@
+{
+    "name": "ArenaForge.Editor",
+    "rootNamespace": "ArenaForge.Editor",
+    "references": [
+        "ArenaForge.Core",
+        "ArenaForge.Unity"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

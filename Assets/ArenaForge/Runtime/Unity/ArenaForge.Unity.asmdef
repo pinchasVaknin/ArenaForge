@@ -1,0 +1,16 @@
+{
+    "name": "ArenaForge.Unity",
+    "rootNamespace": "ArenaForge.Unity",
+    "references": [
+        "ArenaForge.Core"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
