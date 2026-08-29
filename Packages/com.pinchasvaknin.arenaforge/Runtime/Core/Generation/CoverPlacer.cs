@@ -43,6 +43,23 @@ namespace ArenaForge.Core
         /// <summary>Tag a socket must carry for a prop to be attached to it.</summary>
         public const string PropSurfaceTag = "prop_surface";
 
+        /// <summary>
+        /// The segment a socket prop's stable id carries under its parent's, and the way to tell
+        /// one from an object standing on the ground.
+        /// </summary>
+        /// <remarks>
+        /// Stated once because two things read it: <see cref="PlaceSocketProps"/> writes it, and
+        /// <see cref="TryJudge"/> has to leave these out of what it measures. A prop on a socket is
+        /// placed by a pass that never consults a constraint set — it is attached to a pose its
+        /// parent declares — so in plan it sits inside its parent's own footprint, and asking the
+        /// ground rules about either of them gives an overlap that is the art working as intended.
+        /// </remarks>
+        public const string SocketSegment = "/socket_";
+
+        /// <summary>True for an object standing on another object's socket rather than on the ground.</summary>
+        public static bool IsSocketProp(string stableId) =>
+            stableId != null && stableId.IndexOf(SocketSegment, StringComparison.Ordinal) >= 0;
+
         /// <summary>Prefix of the world metadata keys holding the placement statistics.</summary>
         public const string StatsPrefix = "cover_";
 
@@ -486,15 +503,30 @@ namespace ArenaForge.Core
         /// fires, which is what leaves those maps exactly as they were.
         /// </para>
         /// </remarks>
-        static ConstraintSet BuildConstraints(
-            ArenaLayout layout,
-            ArenaLane lane,
-            IReadOnlyList<MapStructure> structures,
-            IReadOnlyList<Placement> anchored,
-            IReadOnlyList<Rect2> doorways,
-            IReadOnlyList<Rect2> corridors)
+        /// <summary>
+        /// The rules a piece of cover stands under, in the order they are evaluated.
+        /// </summary>
+        /// <remarks>
+        /// Stated here rather than inline in <see cref="BuildConstraints"/> because a second caller
+        /// needs the same list: <see cref="TryJudge"/> asks whether an object already in a document
+        /// is somewhere a prop may stand, and it has to ask under the rules the generator would
+        /// have used. Two copies of this array would be two ideas of where cover may go, and the
+        /// one in the editor would be the one nobody noticed had drifted.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="layout"/> or <paramref name="lane"/> is null.</exception>
+        public static PlacementConstraint[] Rules(ArenaLayout layout, ArenaLane lane)
         {
-            var constraints = new ConstraintSet(layout, new[]
+            if (layout == null)
+            {
+                throw new ArgumentNullException(nameof(layout));
+            }
+
+            if (lane == null)
+            {
+                throw new ArgumentNullException(nameof(lane));
+            }
+
+            return new[]
             {
                 PlacementConstraint.OnGrid(layout.Grid.CellSize),
                 PlacementConstraint.InsidePlayfield(),
@@ -504,7 +536,185 @@ namespace ArenaForge.Core
                 PlacementConstraint.MinDistanceFrom(ArenaLayoutGenerator.StructureTag, StructureClearance),
                 PlacementConstraint.OffReservedPath(),
                 PlacementConstraint.NoOverlap(PropMargin),
-            });
+            };
+        }
+
+        /// <summary>
+        /// Judges an object already in a document where it now stands, and reports the first rule
+        /// that refuses it. Returns false when the catalog has no row for it, which is the one case
+        /// there is nothing to say.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// What the editor asks when somebody drags a crate: not "where would the generator have
+        /// put this" but "is where you have just put it somewhere a prop may stand". So the rules
+        /// are <see cref="Rules"/> and the committed set is the rest of the document rather than a
+        /// generation in progress — every other object as the document holds it, the doorways the
+        /// structures declared, and whatever ground a road has reserved.
+        /// </para>
+        /// <para>
+        /// <strong>It judges props, not structures.</strong> A building is placed by a different
+        /// stage under different rules, and asked under these it would be refused for standing too
+        /// near a structure — itself excepted, but not its neighbour. Callers filter on
+        /// <see cref="ArenaLayoutGenerator.StructureTag"/>; this does not, because a rule about
+        /// which objects a question applies to is the caller's and it would be a second place to
+        /// state it.
+        /// </para>
+        /// <para>
+        /// The lane is the one whose band holds the object's own footprint centre, and the nearest
+        /// band when none does. That is not a fallback so much as the honest answer: an object
+        /// outside every lane is outside the playfield too, and the rule that says so is the one
+        /// worth naming.
+        /// </para>
+        /// <para>
+        /// The subject is left out of the committed set, or every object would overlap itself.
+        /// Objects the catalog cannot resolve are left out too — a row that has gone leaves nothing
+        /// to measure, and treating it as occupying nothing is the same reading
+        /// <see cref="MapAnalyzer"/> takes.
+        /// </para>
+        /// <para>
+        /// The footprint it judged comes back with the verdict, because the caller that draws the
+        /// answer has to shade exactly the ground the answer was about. Recomputing it on the other
+        /// side of the assembly boundary is the same box measured twice.
+        /// </para>
+        /// </remarks>
+        /// <exception cref="ArgumentNullException">Any argument other than the corridors is null.</exception>
+        public static bool TryJudge(
+            ArenaLayout layout,
+            WorldDoc doc,
+            Catalog catalog,
+            IReadOnlyList<Rect2> corridors,
+            PlacedObject subject,
+            out ConstraintResult result,
+            out Rect2 footprint)
+        {
+            if (layout == null)
+            {
+                throw new ArgumentNullException(nameof(layout));
+            }
+
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            if (catalog == null)
+            {
+                throw new ArgumentNullException(nameof(catalog));
+            }
+
+            if (subject == null)
+            {
+                throw new ArgumentNullException(nameof(subject));
+            }
+
+            result = ConstraintResult.Ok;
+            footprint = default;
+
+            CatalogEntry entry = catalog.Find(subject.LogicalId);
+            if (entry == null || IsSocketProp(subject.StableId))
+            {
+                return false;
+            }
+
+            footprint = WorldFootprint(subject.Pose, entry.Footprint);
+            var constraints = new ConstraintSet(layout, Rules(layout, LaneOf(layout, footprint.Center)));
+
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                PlacedObject other = doc.GeneratedObjects[i];
+                if (string.Equals(other.StableId, subject.StableId, StringComparison.Ordinal) ||
+                    IsSocketProp(other.StableId))
+                {
+                    continue;
+                }
+
+                CatalogEntry row = catalog.Find(other.LogicalId);
+                if (row == null)
+                {
+                    continue;
+                }
+
+                constraints.Commit(new Placement(
+                    other.LogicalId,
+                    other.Pose,
+                    WorldFootprint(other.Pose, row.Footprint),
+                    other.Tags));
+            }
+
+            List<Rect2> doorways = ArenaLayoutGenerator.Doorways(doc);
+            for (int i = 0; i < doorways.Count; i++)
+            {
+                constraints.AddDoorway(doorways[i]);
+            }
+
+            if (corridors != null)
+            {
+                for (int i = 0; i < corridors.Count; i++)
+                {
+                    constraints.AddReservedPath(corridors[i]);
+                }
+            }
+
+            result = constraints.Evaluate(new Placement(
+                subject.LogicalId, subject.Pose, footprint, subject.Tags));
+
+            return true;
+        }
+
+        /// <summary>The lane whose band holds a point, or the nearest one when none does.</summary>
+        static ArenaLane LaneOf(ArenaLayout layout, Vec2 point)
+        {
+            ArenaLane nearest = layout.Lanes[0];
+            float best = float.MaxValue;
+
+            for (int i = 0; i < layout.Lanes.Count; i++)
+            {
+                ArenaLane lane = layout.Lanes[i];
+                if (lane.Band.Contains(point))
+                {
+                    return lane;
+                }
+
+                float distance = Vec2.Distance(lane.Band.Center, point);
+                if (distance < best)
+                {
+                    best = distance;
+                    nearest = lane;
+                }
+            }
+
+            return nearest;
+        }
+
+        /// <summary>The axis-aligned world bounds a pose gives a local footprint.</summary>
+        /// <remarks>
+        /// The box round the oriented rectangle, which is what a <see cref="Placement"/> carries
+        /// and what every rule here measures against.
+        /// </remarks>
+        static Rect2 WorldFootprint(Pose pose, Rect2 local)
+        {
+            Vec3 a = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MinZ));
+            Vec3 b = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MinZ));
+            Vec3 c = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MaxZ));
+            Vec3 d = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MaxZ));
+
+            return new Rect2(
+                MathF.Min(MathF.Min(a.X, b.X), MathF.Min(c.X, d.X)),
+                MathF.Min(MathF.Min(a.Z, b.Z), MathF.Min(c.Z, d.Z)),
+                MathF.Max(MathF.Max(a.X, b.X), MathF.Max(c.X, d.X)),
+                MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
+        }
+
+        static ConstraintSet BuildConstraints(
+            ArenaLayout layout,
+            ArenaLane lane,
+            IReadOnlyList<MapStructure> structures,
+            IReadOnlyList<Placement> anchored,
+            IReadOnlyList<Rect2> doorways,
+            IReadOnlyList<Rect2> corridors)
+        {
+            var constraints = new ConstraintSet(layout, Rules(layout, lane));
 
             for (int i = 0; i < structures.Count; i++)
             {
@@ -639,7 +849,8 @@ namespace ArenaForge.Core
                     }
 
                     doc.GeneratedObjects.Add(new PlacedObject(
-                        $"{parent.StableId}/socket_{s.ToString("00", CultureInfo.InvariantCulture)}/prop_00",
+                        $"{parent.StableId}{SocketSegment}" +
+                        $"{s.ToString("00", CultureInfo.InvariantCulture)}/prop_00",
                         prop.LogicalId,
                         parent.Pose.Transform(socket.LocalPose),
                         TagArray(prop.Tags),

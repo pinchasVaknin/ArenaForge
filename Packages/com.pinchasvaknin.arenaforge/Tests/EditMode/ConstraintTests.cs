@@ -596,5 +596,160 @@ namespace ArenaForge.Tests
             Assert.Throws<ArgumentNullException>(
                 () => Placement.AtQuarterTurn(null, Vec2.Zero, 0));
         }
+
+        // --- judging an object where it already stands --------------------------------------------
+
+        /// <remarks>
+        /// <para>
+        /// The property the scene-view verdict rests on, and the reason
+        /// <see cref="CoverPlacer.Rules"/> exists as one list rather than two: every piece of cover
+        /// the generator put down was accepted by those rules when it went down, so asking the same
+        /// rules about it afterwards has to accept it again. A drift between the list the placer
+        /// uses and the list the editor asks under shows up here and nowhere else — every other
+        /// suite would stay green.
+        /// </para>
+        /// <para>
+        /// Sweeping seeds rather than checking one map, because what could go wrong is a rule that
+        /// only bites on a particular arrangement: a prop by a doorway, a prop near a spawn apron,
+        /// a prop against the one structure that overhangs its band.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void EveryPieceOfCoverIsAcceptedWhereTheGeneratorPutIt()
+        {
+            Catalog catalog = TestWorlds.SampleCatalog();
+            var refused = new List<string>();
+
+            for (ulong seed = 1; seed <= 40; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed };
+                WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+                ArenaLayout layout = ArenaLayout.Build(parameters);
+
+                foreach (PlacedObject placed in doc.GeneratedObjects)
+                {
+                    // Ground cover only. A prop on a socket sits inside its parent's footprint by
+                    // design and is placed by a pass that never asks a rule, so there is no ground
+                    // verdict to be had about one — CoverPlacer.IsSocketProp is what says so.
+                    if (!placed.StableId.Contains("/cover_") ||
+                        CoverPlacer.IsSocketProp(placed.StableId))
+                    {
+                        continue;
+                    }
+
+                    Assert.That(
+                        CoverPlacer.TryJudge(
+                            layout, doc, catalog, null, placed,
+                            out ConstraintResult result, out Rect2 _),
+                        Is.True,
+                        $"seed {seed}: {placed.StableId} has no catalog row");
+
+                    if (!result.IsOk)
+                    {
+                        refused.Add($"seed {seed}: {placed.StableId} refused by {result.Failed}");
+                    }
+                }
+            }
+
+            Assert.That(refused, Is.Empty,
+                "cover the generator placed under these rules is not accepted by them");
+        }
+
+        /// <remarks>
+        /// The other half: a verdict that accepted everything would pass the property above without
+        /// saying anything. Each case names the rule it expects, because "refused" is not the useful
+        /// answer — which rule refused is.
+        /// </remarks>
+        [Test]
+        public void APropMovedSomewhereItMayNotStandIsRefusedByTheRuleThatSaysSo()
+        {
+            Catalog catalog = TestWorlds.SampleCatalog();
+            var parameters = new ArenaParams { Seed = 20260816UL };
+            WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+            ArenaLayout layout = ArenaLayout.Build(parameters);
+
+            PlacedObject cover = null;
+            PlacedObject structure = null;
+            foreach (PlacedObject placed in doc.GeneratedObjects)
+            {
+                if (cover == null && placed.StableId.Contains("/cover_"))
+                {
+                    cover = placed;
+                }
+
+                if (structure == null && placed.StableId.Contains("/structure_"))
+                {
+                    structure = placed;
+                }
+            }
+
+            Assert.That(cover, Is.Not.Null, "the map has no cover to move");
+            Assert.That(structure, Is.Not.Null, "the map has no structure to move it onto");
+
+            // Onto the middle of a structure: the nearest rule that bites is the clearance a prop
+            // has to keep from one, which fires before the overlap does. Snapped first, because a
+            // structure is not placed on the prop grid and OnGrid is evaluated before either of
+            // them — the verdict would be right and about the wrong thing.
+            Vec2 centre = layout.Grid.Snap(
+                new Vec2(structure.Pose.Position.X, structure.Pose.Position.Z));
+            PlacedObject onStructure = cover.WithPose(new Pose(
+                new Vec3(centre.X, cover.Pose.Position.Y, centre.Y),
+                cover.Pose.Rotation,
+                cover.Pose.Scale));
+
+            Assert.That(
+                CoverPlacer.TryJudge(layout, doc, catalog, null, onStructure, out ConstraintResult onIt, out Rect2 _),
+                Is.True);
+            Assert.That(onIt.IsOk, Is.False, "a crate in the middle of a building was accepted");
+            Assert.That(onIt.Failed.Kind, Is.EqualTo(ConstraintKind.MinDistanceFrom));
+
+            // Off the edge of the world.
+            PlacedObject outside = cover.WithPose(new Pose(
+                new Vec3(layout.Playfield.MaxX + 20f, cover.Pose.Position.Y, cover.Pose.Position.Z),
+                cover.Pose.Rotation,
+                cover.Pose.Scale));
+
+            Assert.That(
+                CoverPlacer.TryJudge(layout, doc, catalog, null, outside, out ConstraintResult out_, out Rect2 _),
+                Is.True);
+            Assert.That(out_.IsOk, Is.False, "a crate outside the playfield was accepted");
+            Assert.That(out_.Failed.Kind, Is.EqualTo(ConstraintKind.InsidePlayfield));
+
+            // Half a cell off the grid.
+            PlacedObject offGrid = cover.WithPose(new Pose(
+                new Vec3(
+                    cover.Pose.Position.X + layout.Grid.CellSize * 0.5f,
+                    cover.Pose.Position.Y,
+                    cover.Pose.Position.Z),
+                cover.Pose.Rotation,
+                cover.Pose.Scale));
+
+            Assert.That(
+                CoverPlacer.TryJudge(layout, doc, catalog, null, offGrid, out ConstraintResult off, out Rect2 _),
+                Is.True);
+            Assert.That(off.IsOk, Is.False, "a crate half a cell off the grid was accepted");
+            Assert.That(off.Failed.Kind, Is.EqualTo(ConstraintKind.OnGrid));
+        }
+
+        /// <remarks>
+        /// A row that has gone leaves nothing to measure, and a verdict of "fine" would be a lie
+        /// drawn in green. The caller is told there is nothing to say instead.
+        /// </remarks>
+        [Test]
+        public void AnObjectTheCatalogCannotResolveGetsNoVerdict()
+        {
+            Catalog catalog = TestWorlds.SampleCatalog();
+            var parameters = new ArenaParams { Seed = 20260816UL };
+            WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+            ArenaLayout layout = ArenaLayout.Build(parameters);
+
+            var orphan = new PlacedObject(
+                "map/lane_mid/cover_99", "cover/low/deleted_01", Pose.Identity, null, null);
+
+            Assert.That(
+                CoverPlacer.TryJudge(
+                    layout, doc, catalog, null, orphan, out ConstraintResult _, out Rect2 _),
+                Is.False);
+        }
     }
 }

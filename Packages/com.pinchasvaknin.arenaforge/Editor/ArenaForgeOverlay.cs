@@ -79,6 +79,9 @@ namespace ArenaForge.Editor
         /// </remarks>
         const string RoadsPrefKey = "ArenaForge.Overlay.Roads";
 
+        /// <summary>Editor pref the placement verdict toggle is remembered under.</summary>
+        const string PlacementPrefKey = "ArenaForge.Overlay.Placement";
+
         /// <summary>Where the mode is remembered, so it survives a domain reload.</summary>
         const string ModePrefKey = "ArenaForge.Overlay.ItemMode";
 
@@ -103,6 +106,7 @@ namespace ArenaForge.Editor
 
         bool _guides = EditorPrefs.GetBool(GuidesPrefKey, true);
         bool _roads = EditorPrefs.GetBool(RoadsPrefKey, false);
+        bool _placement = EditorPrefs.GetBool(PlacementPrefKey, true);
         Mode _mode = EditorPrefs.GetBool(ModePrefKey, false) ? Mode.Item : Mode.Map;
         bool _boundMap;
         bool _boundBuilding;
@@ -295,6 +299,15 @@ namespace ArenaForge.Editor
             {
                 _roads = e.newValue;
                 EditorPrefs.SetBool(RoadsPrefKey, _roads);
+                SceneView.RepaintAll();
+            });
+
+            var placement = root.Q<Toggle>("placement");
+            placement.SetValueWithoutNotify(_placement);
+            placement.RegisterValueChangedCallback(e =>
+            {
+                _placement = e.newValue;
+                EditorPrefs.SetBool(PlacementPrefKey, _placement);
                 SceneView.RepaintAll();
             });
         }
@@ -828,6 +841,13 @@ namespace ArenaForge.Editor
             if (_roads)
             {
                 ArenaRoadGuides.Draw(_map);
+            }
+
+            // Last of the three, because it is the only one that is about a particular object: a
+            // verdict has to read over the bands and the carriageway it is standing on.
+            if (_placement)
+            {
+                ArenaPlacementGuides.Draw(_map);
             }
         }
 

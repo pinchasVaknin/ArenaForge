@@ -36,6 +36,7 @@
 
                 <ui:Toggle name="guides" label="Layout guides" tooltip="Draw the playfield, the lanes and the spawns in the scene." />
                 <ui:Toggle name="roads" label="Road network" tooltip="Draw the carriageways and junctions of the last generated network in the scene." />
+                <ui:Toggle name="placement" label="Placement" tooltip="Shade the grid under a selected prop green or red, and name the rule that refuses it." />
             </ui:VisualElement>
         </ui:VisualElement>
 

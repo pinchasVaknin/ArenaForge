@@ -44,6 +44,34 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
+- **The scene view says whether a prop may stand where it is, and which rule refuses it.** A
+  `Placement` toggle on the overlay beside `Layout guides` and `Road network`, and
+  `ArenaPlacementGuides` to draw it: the grid cells under a selected prop shaded green or red, with
+  a chip naming the refusal — `NoOverlap(0.75)`, `MinDistanceFrom(structure, 1.5)` — rather than
+  saying only that something is wrong. The constraint model has always answered with the first rule
+  that rejected a candidate instead of with a boolean; this is the first thing that shows it.
+
+  **Nothing is decided in the editor.** The verdict is `CoverPlacer.TryJudge`'s, under
+  `CoverPlacer.Rules` — the same list `BuildConstraints` places cover by, extracted so it is stated
+  once. Two copies would be two ideas of where a prop may stand, and the one on screen would be the
+  one that drifted. `TryJudge` hands back the footprint it judged along with the verdict, so the
+  cells shaded are the ground the answer was about rather than the same box measured again on the
+  other side of the assembly boundary.
+
+  **Only the cells the prop stands on**, not a legality field over the whole map: that is a query
+  per cell over a few thousand cells on every repaint, and the question being asked is about where
+  the prop is. Structures are skipped — a building is placed by another stage under other rules and
+  would be refused here for standing near its neighbour.
+
+  **A prop on a socket gets no verdict, and finding that out is what the property test was for.**
+  `PlaceSocketProps` attaches a prop to a pose its parent declares, in a pass that never consults a
+  constraint set, so in plan it sits inside its parent's own footprint. Asked under the ground rules
+  the two refuse each other, and the first run of
+  `ConstraintTests.EveryPieceOfCoverIsAcceptedWhereTheGeneratorPutIt` said so: cover the generator
+  had placed came back rejected for `NoOverlap`. Without it the feature would have shipped drawing
+  red on props that are exactly where they belong. `CoverPlacer.IsSocketProp` states the id shape
+  once, and the id it writes is unchanged to the character, so no recorded digest moved.
+
 - **The road network is drawn in the scene view, off a cache.** A `Road network` toggle on the
   overlay beside `Layout guides`, and `ArenaRoadGuides` beside `ArenaLayoutGuides` to draw it: the
   polyline the router found, arteries thick and branches thin at a ratio matching the widths they

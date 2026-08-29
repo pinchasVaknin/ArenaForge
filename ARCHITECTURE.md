@@ -1070,6 +1070,33 @@ lanes on screen are the lanes the *next* generation will use, so raising the lan
 what you are about to get before you commit to it. No arena arithmetic is duplicated in the editor
 assembly, and nothing was added to Core to support this.
 
+**The placement verdict is the third thing drawn, and it is the only one about a particular
+object.** With `Placement` on, selecting a prop shades the grid cells under it green or red and
+names the rule that refused it. The rule is the point: `ConstraintSet.Evaluate` has always answered
+with the first constraint that rejected a candidate rather than with a boolean — section 5 — and
+until now nothing showed it, so a placement that could have said *`MinDistanceFrom(structure, 1.5)`*
+said nothing at all.
+
+Nothing is decided in the editor assembly. The verdict comes from `CoverPlacer.TryJudge`, under
+`CoverPlacer.Rules` — the list `BuildConstraints` places cover by, which was extracted from it once
+a second caller existed. The alternative is two rule lists, and the one that drifts is the one on
+screen, which is the copy nobody runs a thousand seeds against. `TryJudge` returns the footprint it
+judged with the verdict for the same reason: the cells shaded have to be the ground the answer was
+about, and measuring that box again on the far side of the boundary is two answers to one question.
+
+It judges against the document as it stands rather than against a generation in progress — every
+other object, the doorways the structures declared, the ground a road reserved — because the
+question a person dragging a crate asks is not where the generator would have put it but whether
+where they have just put it is somewhere a prop may stand. Structures are skipped: a building is
+placed by another stage under other rules and would be refused here for standing near its
+neighbour.
+
+**A prop on a socket is exempt, and that is a fact about how it was placed.** `PlaceSocketProps`
+attaches a prop to a pose its parent declares and never consults a constraint set, so in plan the
+child sits inside the parent's own footprint. Under the ground rules the two refuse each other, in
+both directions. `CoverPlacer.IsSocketProp` is what says so, and it says it once, because two
+readers of that id shape is one reader eventually reading it wrong.
+
 **The road network is drawn the same way and from the opposite direction: off a cache, never
 recomputed.** The guides are cheap enough to rebuild on every repaint — `ArenaLayout.Build` is
 arithmetic over a rectangle — and a network is not: it is a routing sweep over the whole playfield,
