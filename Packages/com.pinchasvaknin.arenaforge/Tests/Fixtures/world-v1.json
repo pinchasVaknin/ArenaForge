@@ -1,0 +1,200 @@
+{
+  "schemaVersion": 1,
+  "parameters": {
+    "seed": 20260816,
+    "playfieldSize": {
+      "x": 60.0,
+      "y": 60.0
+    },
+    "laneCount": 3,
+    "gridSize": 1.0,
+    "structureDensity": 1.0,
+    "coverDensity": 1.0,
+    "lowToHighCoverRatio": 2.0,
+    "fineCoverRotation": false
+  },
+  "generatedObjects": [
+    {
+      "stableId": "map/spawn_a/marker",
+      "logicalId": "marker/spawn",
+      "pose": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -26.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "marker",
+        "spawn"
+      ],
+      "metadata": {
+        "team": "a"
+      }
+    },
+    {
+      "stableId": "map/spawn_b/marker",
+      "logicalId": "marker/spawn",
+      "pose": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 26.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "marker",
+        "spawn"
+      ],
+      "metadata": {
+        "team": "b"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/structure_00",
+      "logicalId": "structure/building/two_storey_01",
+      "pose": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "structure",
+        "structure/building"
+      ],
+      "metadata": {
+        "doorway_00": "-2,4,2,4.5",
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_00",
+      "logicalId": "cover/low/crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -14.5,
+          "y": 0.0,
+          "z": 8.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_00",
+      "logicalId": "cover/low/sandbags_01",
+      "pose": {
+        "position": {
+          "x": 14.5,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    }
+  ],
+  "overrides": [
+    {
+      "targetId": "map/lane_north/cover_00",
+      "op": "Move",
+      "pose": {
+        "position": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": 9.5
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      }
+    },
+    {
+      "targetId": "map/lane_south/cover_00",
+      "op": "Delete"
+    },
+    {
+      "targetId": "user/crate_00",
+      "op": "Add",
+      "pose": {
+        "position": {
+          "x": 3.5,
+          "y": 0.0,
+          "z": -4.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "logicalId": "cover/low/crate_wood_01",
+      "tags": [
+        "cover",
+        "cover/low",
+        "user"
+      ],
+      "metadata": {
+        "note": "placed by hand"
+      }
+    },
+    {
+      "targetId": "map/lane_mid/structure_00",
+      "op": "SwapAsset",
+      "logicalId": "structure/house/small_01"
+    }
+  ]
+}

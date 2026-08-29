@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <ui:VisualElement name="overlay-root" class="af-overlay">
+
+        <ui:VisualElement name="mode" class="af-overlay-modes">
+            <ui:Button name="mode-map" text="Map" tooltip="Arrange an arena." />
+            <ui:Button name="mode-item" text="Item" tooltip="Arrange a building on its own." />
+        </ui:VisualElement>
+
+        <ui:VisualElement name="map-mode">
+            <ui:VisualElement name="map-slot" />
+
+            <ui:VisualElement name="controls">
+                <ui:VisualElement name="seed-slot" />
+                <ui:VisualElement name="map-params" />
+
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="generate" text="Generate" tooltip="Generate from the seed alone, discarding hand edits." />
+                    <ui:Button name="regenerate" text="Regenerate (keep edits)" tooltip="Generate again and re-apply the hand edits on top." />
+                </ui:VisualElement>
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="clear" text="Clear" class="af-overlay-secondary" tooltip="Drop the document and take the map out of the scene." />
+                </ui:VisualElement>
+
+                <ui:Label text="Document" class="af-overlay-heading" />
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="save" text="Save world..." tooltip="Write the document to a .json file. Exactly the bytes the scene holds." />
+                    <ui:Button name="load" text="Load world..." tooltip="Read a document back, taking its parameters with it." />
+                </ui:VisualElement>
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="map-export" text="Export to prefab..." tooltip="Bake the realised map into a prefab with no ArenaForge components left in it." />
+                </ui:VisualElement>
+
+                <ui:Label name="override-count" class="af-overlay-line" />
+                <ui:Label name="selection" class="af-overlay-line" />
+
+                <ui:Toggle name="guides" label="Layout guides" tooltip="Draw the playfield, the lanes and the spawns in the scene." />
+                <ui:Toggle name="roads" label="Road network" tooltip="Draw the carriageways and junctions of the last generated network in the scene." />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:VisualElement name="item-mode">
+            <ui:VisualElement name="building-slot" />
+
+            <ui:VisualElement name="building-controls">
+                <ui:VisualElement name="building-seed-slot" />
+                <ui:VisualElement name="building-params" />
+
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="building-generate" text="Generate" tooltip="Generate from the seed alone, deriving every floor seed afresh." />
+                    <ui:Button name="building-regenerate" text="Regenerate (keep edits)" tooltip="Generate again, keeping the floor seeds and re-applying the hand edits." />
+                </ui:VisualElement>
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="building-clear" text="Clear" class="af-overlay-secondary" tooltip="Drop the document and take the building out of the scene." />
+                </ui:VisualElement>
+
+                <ui:Label text="Floors" class="af-overlay-heading" />
+                <ui:VisualElement name="floors" />
+
+                <ui:VisualElement class="af-overlay-buttons">
+                    <ui:Button name="export" text="Export to prefab..." tooltip="Bake this building into a prefab and bind it into the catalog, so the arena generator can place it." />
+                </ui:VisualElement>
+
+                <ui:Label name="building-summary" class="af-overlay-line" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+
+        <ui:Label name="status" class="af-overlay-status" />
+
+    </ui:VisualElement>
+</ui:UXML>

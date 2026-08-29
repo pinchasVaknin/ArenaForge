@@ -89,6 +89,46 @@ namespace ArenaForge.Core
                 MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
         }
 
+        /// <summary>
+        /// The step whose own direction lies closest to <paramref name="direction"/>.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A sweep of the table rather than an <see cref="MathF.Atan2"/> divided by fifteen, and
+        /// for the reason the table exists at all. The angle would be right to within a rounding
+        /// error every time, and a rounding error is exactly what decides the answer for a
+        /// direction that falls on the boundary between two steps — so two machines would round a
+        /// road at 7.5 degrees to two different pieces of art and the map would not be the same map.
+        /// Every number multiplied here is a literal above, so the comparison is a fact about the
+        /// direction rather than about the runtime's trigonometry.
+        /// </para>
+        /// <para>
+        /// Ties go to the lower step, which is what a direction exactly between two of them gets.
+        /// Nothing about which one is better; what matters is that it is always the same one.
+        /// </para>
+        /// </remarks>
+        public static int Nearest(Vec2 direction)
+        {
+            int nearest = 0;
+            float closest = float.NegativeInfinity;
+
+            for (int step = 0; step < Count; step++)
+            {
+                // Where this step sends the X axis. The run's own along axis, which is the axis a
+                // piece of art is laid down.
+                Vec3 turned = Rotations[step].Rotate(new Vec3(1f, 0f, 0f));
+                float alignment = turned.X * direction.X + turned.Z * direction.Y;
+
+                if (alignment > closest)
+                {
+                    closest = alignment;
+                    nearest = step;
+                }
+            }
+
+            return nearest;
+        }
+
         /// <summary>Folds any whole number of steps into 0..23.</summary>
         public static int Normalize(int steps) => ((steps % Count) + Count) % Count;
     }

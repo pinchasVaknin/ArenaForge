@@ -148,7 +148,7 @@ namespace ArenaForge.Core
                 {
                     structures.Add(WorldFootprint(placed, entry));
                 }
-                else if (HasTag(placed, CoverPlacer.CoverTag))
+                else if (IsCover(placed))
                 {
                     cover.Add(WorldFootprint(placed, entry));
                 }
@@ -418,6 +418,37 @@ namespace ArenaForge.Core
                 MathF.Max(MathF.Max(a.X, b.X), MathF.Max(c.X, d.X)),
                 MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
         }
+
+        /// <summary>
+        /// True for everything that counts towards a cell being within reach of cover.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <strong>Two tags, because two things on a map are cover and one of them was not placed
+        /// as cover.</strong> A crate is what <see cref="CoverPlacer"/> scattered and a bench is
+        /// what <see cref="RoadFurniture"/> stood on a verge, and in a sixty-metre arena the second
+        /// is not decoration: a player pinned in the open beside a road reaches the bench, and it
+        /// is the only thing to reach. So a piece of street furniture fulfils the cover a stretch of
+        /// floor needs in exactly the way the crate it stands in place of would.
+        /// </para>
+        /// <para>
+        /// <strong>The kerbing does not, and that is the same judgement made the other way.</strong>
+        /// A kerb is a line of stone a few centimetres proud of the road; nobody takes cover behind
+        /// one. It carries no cover tag, so nothing here has to exclude it — which is worth saying
+        /// because the two are placed by neighbouring stages from neighbouring folders, and the
+        /// difference between them is what a player can get behind rather than where they came
+        /// from.
+        /// </para>
+        /// <para>
+        /// This is only the count. Whether a piece of either kind blocks a sightline is a separate
+        /// question and is asked separately, of every object on the map, by
+        /// <see cref="Occluder.TryCreate"/> — which is why a bench shelters the ground beside it
+        /// here and still does not block a standing player's view over it.
+        /// </para>
+        /// </remarks>
+        static bool IsCover(PlacedObject placed) =>
+            HasTag(placed, CoverPlacer.CoverTag) ||
+            HasTag(placed, RoadFurniture.FurnitureTag);
 
         static bool HasTag(PlacedObject placed, string tag)
         {

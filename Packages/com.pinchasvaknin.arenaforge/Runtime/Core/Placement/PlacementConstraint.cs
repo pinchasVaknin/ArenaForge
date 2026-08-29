@@ -7,9 +7,11 @@ namespace ArenaForge.Core
     /// </summary>
     /// <remarks>
     /// A closed enum rather than a constraint interface with an implementation per rule. There
-    /// are eight rules, <see cref="ConstraintSet"/> evaluates all eight, and nothing outside Core
-    /// adds a ninth. An extension point here would be a guess about a caller that does not exist;
-    /// when one turns up, the switch that evaluates these is the obvious place to change.
+    /// are thirteen rules, <see cref="ConstraintSet"/> evaluates all thirteen, and nothing outside
+    /// Core adds a fourteenth. An extension point here would be a guess about a caller that does not
+    /// exist; when one turns up, the switch that evaluates these is the obvious place to change —
+    /// which is exactly what happened when interior decor arrived and wanted to be told where a
+    /// wall is.
     /// </remarks>
     public enum ConstraintKind
     {
@@ -36,6 +38,21 @@ namespace ArenaForge.Core
 
         /// <summary>The footprint must stay out of both spawn areas, plus a radius.</summary>
         ClearOfSpawn,
+
+        /// <summary>The footprint must reach within this distance of one of the region's edges.</summary>
+        AgainstWall,
+
+        /// <summary>The footprint must reach within this distance of two perpendicular edges.</summary>
+        InCorner,
+
+        /// <summary>The footprint must keep this much floor between itself and every edge.</summary>
+        InCentre,
+
+        /// <summary>The footprint must be within this distance of a declared doorway.</summary>
+        NearDoorway,
+
+        /// <summary>The footprint must stay off every reserved walkway.</summary>
+        OffReservedPath,
     }
 
     /// <summary>
@@ -119,6 +136,86 @@ namespace ArenaForge.Core
             new PlacementConstraint(ConstraintKind.ClearOfSpawn, null, radius);
 
         /// <summary>
+        /// The footprint must come within <paramref name="reach"/> metres of one of the region's
+        /// four edges — the rule that puts a sofa along a wall instead of in the middle of the
+        /// floor.
+        /// </summary>
+        /// <remarks>
+        /// Against the region rather than against a committed wall, because a building's walls are
+        /// art rather than placed objects: the region a room's contents are proposed into is
+        /// bounded by exactly the walls that enclose it, so its edges <em>are</em> the walls. A
+        /// reach of zero means flush.
+        /// </remarks>
+        public static PlacementConstraint AgainstWall(float reach) =>
+            new PlacementConstraint(ConstraintKind.AgainstWall, null, reach);
+
+        /// <summary>
+        /// The footprint must come within <paramref name="reach"/> metres of two perpendicular
+        /// edges of the region at once. Strictly stronger than <see cref="AgainstWall"/>.
+        /// </summary>
+        public static PlacementConstraint InCorner(float reach) =>
+            new PlacementConstraint(ConstraintKind.InCorner, null, reach);
+
+        /// <summary>
+        /// The footprint must keep <paramref name="clearance"/> metres of floor between itself and
+        /// every edge of the region — the rule that puts a table in the middle of a room rather
+        /// than back against its wall.
+        /// </summary>
+        /// <remarks>
+        /// The exact negation of <see cref="AgainstWall"/> over the same two predicates, which is
+        /// why it is one rule rather than a pair of distance tests: a piece the region's edges
+        /// cannot reach is a piece standing in the middle of it, whatever the region's shape.
+        /// A clearance rather than a radius from the centre, because what makes a room's middle
+        /// its middle is the floor left round the thing standing there — a hall's centrepiece is
+        /// no further from its walls than a cupboard's would be if the rule were measured the
+        /// other way about.
+        /// </remarks>
+        public static PlacementConstraint InCentre(float clearance) =>
+            new PlacementConstraint(ConstraintKind.InCentre, null, clearance);
+
+        /// <summary>
+        /// The footprint must be within <paramref name="distance"/> metres of some declared
+        /// doorway. Satisfied when no doorway has been declared, for the reason
+        /// <see cref="MaxDistanceFrom"/> is: a rule with nothing to measure from cannot reject.
+        /// </summary>
+        public static PlacementConstraint NearDoorway(float distance) =>
+            new PlacementConstraint(ConstraintKind.NearDoorway, null, distance);
+
+        /// <summary>
+        /// The footprint must not touch any walkway reserved on the region — the rule that keeps
+        /// the route between a room's doors walkable, and the road across a map open.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// It takes no distance, where <see cref="NotBlockingDoorway"/> takes a clearance, because
+        /// a walkway is not a thing to keep away from: it is a strip of floor whose width already
+        /// says how much room a person needs. A margin on top would be that width stated twice,
+        /// and stating it here would let two callers disagree about how wide the same strip is.
+        /// </para>
+        /// <para>
+        /// <strong>Two callers now, and the second wanted no distance either.</strong> A room's
+        /// walkway is reserved by <c>FloorPlan</c>; a carriageway is reserved by
+        /// <see cref="RoadNetwork.Corridors"/> and handed to the same rule by
+        /// <see cref="CoverPlacer"/>. An outdoor verge looked like the thing the unused
+        /// <see cref="Value"/> field was waiting for and measured as the opposite: cover snaps to
+        /// the placement grid, so a verge of even half a metre moves a prop a whole cell further
+        /// from the road, and the road's own ground stops being covered from beside it. Over seeds
+        /// 1..1000 of the default map at a road density of 1 that took cover coverage from 0.700 to
+        /// 0.668 and put 47 seeds under the threshold; a metre of verge took it to 0.658 and 102.
+        /// The rectangles a network reserves are where the road is, and that is the whole of the
+        /// width worth stating.
+        /// </para>
+        /// <para>
+        /// Separate from <see cref="NotBlockingDoorway"/> rather than expressed by declaring each
+        /// strip as another doorway, because the clearance that rule applies would grow every
+        /// strip by three quarters of a metre on all four sides — turning a walkway a person can
+        /// use into a reservation that swallows a small room whole.
+        /// </para>
+        /// </remarks>
+        public static PlacementConstraint OffReservedPath() =>
+            new PlacementConstraint(ConstraintKind.OffReservedPath, null, 0f);
+
+        /// <summary>
         /// Reads as the factory call that produced it — <c>NoOverlap(0.75)</c>. This is the text a
         /// rejection is reported with, so it goes in placement statistics and test failures.
         /// </summary>
@@ -129,7 +226,8 @@ namespace ArenaForge.Core
             switch (Kind)
             {
                 case ConstraintKind.InsidePlayfield:
-                    return "InsidePlayfield";
+                case ConstraintKind.OffReservedPath:
+                    return Kind.ToString();
                 case ConstraintKind.WithinLane:
                     return $"WithinLane({Target})";
                 case ConstraintKind.MinDistanceFrom:

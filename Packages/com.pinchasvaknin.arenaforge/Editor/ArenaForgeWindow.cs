@@ -191,6 +191,12 @@ namespace ArenaForge.Editor
                 "change cover ratio");
             Bind<Toggle, bool>(
                 "fine-rotation", (m, v) => m.FineCoverRotation = v, "change cover rotation");
+            Bind<FloatField, float>(
+                "terrain-amplitude", (m, v) => m.TerrainAmplitude = Mathf.Max(0f, v),
+                "change terrain relief");
+            Bind<FloatField, float>(
+                "terrain-feature", (m, v) => m.TerrainFeatureSize = Mathf.Max(0.5f, v),
+                "change terrain feature size");
 
             var eyeHeight = rootVisualElement.Q<FloatField>("eye-height");
             eyeHeight.value = _eyeHeight;
@@ -303,64 +309,31 @@ namespace ArenaForge.Editor
 
         // --- actions ------------------------------------------------------------------------
 
-        void Edit(string action, Action<ArenaMap> apply)
-        {
-            if (_map == null)
-            {
-                return;
-            }
-
-            Undo.RegisterCompleteObjectUndo(_map, "ArenaForge: " + action);
-            apply(_map);
-            EditorUtility.SetDirty(_map);
-        }
+        void Edit(string action, Action<ArenaMap> apply) => MapOperations.Edit(_map, action, apply);
 
         void RandomiseSeed()
         {
-            // The project's own RNG rather than System.Random, per CLAUDE.md — seeded from the clock
-            // because picking a fresh seed is the one thing here that is meant not to be repeatable.
-            var rng = new Rng((ulong)DateTime.UtcNow.Ticks);
-            ulong seed = ((ulong)rng.NextUInt() << 32) | rng.NextUInt();
+            ulong seed = MapOperations.RandomSeed();
 
             Edit("randomise seed", m => m.Seed = seed);
             _seedField.SetValueWithoutNotify(seed);
         }
 
         /// <summary>
-        /// Runs one whole-map operation inside a single named undo group, and re-reads everything
-        /// that depends on the result.
+        /// Runs one whole-map operation and re-reads everything in the window that depends on the
+        /// result. The undo grouping is <see cref="MapOperations.Run"/>'s.
         /// </summary>
         void Rebuild(string action, Func<ArenaMap, ResolvedWorld> operation)
         {
-            if (_map == null)
+            MapOperationResult result = MapOperations.Run(_map, action, operation);
+            if (!result.Succeeded)
             {
+                Status(result.Error);
                 return;
             }
-
-            string name = "ArenaForge: " + action;
-            int group = Undo.GetCurrentGroup();
-            Undo.RegisterCompleteObjectUndo(_map, name);
-
-            ResolvedWorld resolved;
-            try
-            {
-                resolved = operation(_map);
-            }
-            catch (Exception error) when (error is InvalidOperationException ||
-                                          error is ArgumentException ||
-                                          error is UnsupportedSchemaVersionException)
-            {
-                Undo.RevertAllDownToGroup(group);
-                Status(error.Message);
-                return;
-            }
-
-            EditorUtility.SetDirty(_map);
-            Undo.SetCurrentGroupName(name);
-            Undo.CollapseUndoOperations(group);
 
             Status(null);
-            TakeOrphans(resolved);
+            TakeOrphans(result.Resolved);
             _capture.Rebuild();
             RefreshAll();
             ScheduleAnalysis();
@@ -368,23 +341,21 @@ namespace ArenaForge.Editor
 
         void Save()
         {
-            WorldDoc doc = _map != null ? _map.Document : null;
-            if (doc == null)
+            string path;
+            try
             {
-                Status("There is no map to save yet.");
+                path = MapOperations.SaveWorld(_map);
+            }
+            catch (Exception error) when (error is InvalidOperationException || error is IOException)
+            {
+                Status(error.Message);
                 return;
             }
 
-            string path = EditorUtility.SaveFilePanel(
-                "Save ArenaForge map", Application.dataPath, "arena_" + _map.Seed, "json");
-            if (string.IsNullOrEmpty(path))
+            if (path != null)
             {
-                return;
+                Status($"Saved to {path}");
             }
-
-            File.WriteAllText(path, ArenaJson.SerializeWorld(doc));
-            AssetDatabase.Refresh();
-            Status($"Saved to {path}");
         }
 
         void Load()
@@ -394,22 +365,22 @@ namespace ArenaForge.Editor
                 return;
             }
 
-            string path = EditorUtility.OpenFilePanel("Load ArenaForge map", Application.dataPath, "json");
-            if (string.IsNullOrEmpty(path))
-            {
-                return;
-            }
-
             WorldDoc doc;
             try
             {
-                doc = ArenaJson.DeserializeWorld(File.ReadAllText(path));
+                doc = MapOperations.OpenWorld();
             }
             catch (Exception error) when (error is UnsupportedSchemaVersionException ||
+                                          error is InvalidOperationException ||
                                           error is ArgumentException ||
                                           error is IOException)
             {
                 Status(error.Message);
+                return;
+            }
+
+            if (doc == null)
+            {
                 return;
             }
 
@@ -435,8 +406,19 @@ namespace ArenaForge.Editor
 
             if (_capture != null && _map != null && _capture.Tick())
             {
+                // The document may have moved under the window rather than because of a scene edit
+                // — the scene-view overlay regenerating is the ordinary case — so the orphan list
+                // is re-read too, not just the override list.
+                TakeOrphans(_map.Document.Resolve());
                 RefreshOverrides();
                 ScheduleAnalysis();
+            }
+
+            // The seed is the one parameter the overlay also writes, so the field follows it rather
+            // than assuming this window is the only thing that can have changed it.
+            if (_map != null && _seedField != null && _seedField.value != _map.Seed)
+            {
+                _seedField.SetValueWithoutNotify(_map.Seed);
             }
 
             if (_analysisDue && now >= _analyseAt)
@@ -632,6 +614,8 @@ namespace ArenaForge.Editor
             Set<FloatField, float>("cover-density", _map.CoverDensity);
             Set<FloatField, float>("low-high-ratio", _map.LowToHighCoverRatio);
             Set<Toggle, bool>("fine-rotation", _map.FineCoverRotation);
+            Set<FloatField, float>("terrain-amplitude", _map.TerrainAmplitude);
+            Set<FloatField, float>("terrain-feature", _map.TerrainFeatureSize);
         }
 
         void Set<TField, TValue>(string name, TValue value)

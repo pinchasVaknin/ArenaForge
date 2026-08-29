@@ -82,9 +82,33 @@ namespace ArenaForge.Unity
                 throw new System.ArgumentNullException(nameof(doc));
             }
 
+            return Realize(doc.Resolve());
+        }
+
+        /// <summary>
+        /// Resolves a building and instantiates one GameObject per resolved object.
+        /// </summary>
+        /// <remarks>
+        /// The same realiser, with nothing in it that knows which kind of document it was handed.
+        /// A building's objects are placed objects with a logical id and a pose, exactly as a
+        /// map's are, and the only thing the extra storeys change is their Y — see
+        /// ARCHITECTURE.md section 7.
+        /// </remarks>
+        /// <returns>The resolution, including any override that could not be applied.</returns>
+        public ResolvedWorld Realize(BuildingDoc doc)
+        {
+            if (doc == null)
+            {
+                throw new System.ArgumentNullException(nameof(doc));
+            }
+
+            return Realize(doc.Resolve());
+        }
+
+        ResolvedWorld Realize(ResolvedWorld resolved)
+        {
             Derealize();
 
-            ResolvedWorld resolved = doc.Resolve();
             if (_catalog == null)
             {
                 Debug.LogWarning($"ArenaForge: '{name}' has no catalog, so nothing was realised.", this);
@@ -154,7 +178,12 @@ namespace ArenaForge.Unity
             Transform t = instance.transform;
             t.localPosition = CoreConvert.ToUnity(pose.Position);
             t.localRotation = CoreConvert.ToUnity(pose.Rotation);
-            t.localScale = Vector3.one * pose.Scale;
+
+            // The vertical scale multiplies the uniform one rather than replacing it on Y, so a
+            // stretched piece that is also scaled comes out scaled and then stretched — which is
+            // the order Core composes them in. It is one for everything but a wall run.
+            t.localScale = new Vector3(
+                pose.Scale, pose.Scale * pose.VerticalScale, pose.Scale);
 
             instance.AddComponent<ArenaObjectRef>().Bind(placed.StableId);
 

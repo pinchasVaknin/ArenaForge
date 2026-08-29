@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
+  "kind": "world",
   "parameters": {
     "seed": 20260816,
     "playfieldSize": {
@@ -11,7 +12,13 @@
     "structureDensity": 1.0,
     "coverDensity": 1.0,
     "lowToHighCoverRatio": 2.0,
-    "fineCoverRotation": false
+    "fineCoverRotation": false,
+    "terrainAmplitude": 0.0,
+    "terrainFeatureSize": 20.0,
+    "roadDensity": 0.0,
+    "arteryWidth": 4.0,
+    "pathWidth": 2.0,
+    "maxRoadGradient": 0.25
   },
   "generatedObjects": [
     {

@@ -33,15 +33,29 @@ namespace ArenaForge.Unity
         /// Reads a transform's local placement as a Core pose.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Local rather than world, because <see cref="WorldRealizer"/> poses instances in the
         /// realisation root's space — so a map that has been dragged around the scene still reads
-        /// back the document coordinates it was built from. The scale is the X component: document
-        /// poses carry one uniform scale, and a non-uniform scale a user typed into the inspector
-        /// has no representation to be captured into.
+        /// back the document coordinates it was built from.
+        /// </para>
+        /// <para>
+        /// The uniform scale is the X component and the vertical scale is what Y is over it, which
+        /// is the inverse of what the realiser writes. A pose can say one stretch along its own Y
+        /// and nothing else, so a user who scales an instance unevenly in Z has typed something the
+        /// document cannot hold; X is taken as the uniform factor because that is the axis the
+        /// realiser wrote it to.
+        /// </para>
         /// </remarks>
-        public static CorePose ToCorePose(Transform transform) => new CorePose(
-            ToCore(transform.localPosition),
-            ToCore(transform.localRotation),
-            transform.localScale.x);
+        public static CorePose ToCorePose(Transform transform)
+        {
+            Vector3 scale = transform.localScale;
+            float uniform = scale.x;
+
+            return new CorePose(
+                ToCore(transform.localPosition),
+                ToCore(transform.localRotation),
+                uniform,
+                uniform != 0f ? scale.y / uniform : 1f);
+        }
     }
 }

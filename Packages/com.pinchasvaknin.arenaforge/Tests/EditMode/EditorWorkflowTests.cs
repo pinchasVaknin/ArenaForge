@@ -297,6 +297,46 @@ namespace ArenaForge.Tests
             Assert.That(FindInstance(id), Is.Not.Null);
         }
 
+        // --- whole-map operations -------------------------------------------------------------
+
+        [Test]
+        public void AWholeMapOperationCollapsesIntoOneNamedUndoStep()
+        {
+            MapOperationResult result = MapOperations.Run(_map, "generate map", m => m.Generate());
+
+            Assert.That(result.Succeeded, Is.True, result.Error);
+            Assert.That(Undo.GetCurrentGroupName(), Is.EqualTo("ArenaForge: generate map"),
+                "the undo entry is named for what it did, not 'Paste Values'");
+
+            Undo.PerformUndo();
+
+            Assert.That(_map.HasDocument, Is.False, "one undo walks the whole generation back");
+            Assert.That(_map.Realizer.RealizedCount, Is.Zero, "and the GameObjects with it");
+        }
+
+        [Test]
+        public void AFailedOperationLeavesTheDocumentAndTheUndoStackWhereItFoundThem()
+        {
+            _map.Generate();
+            string before = ArenaJson.SerializeWorld(_map.Document);
+            int group = Undo.GetCurrentGroup();
+
+            MapOperationResult result = MapOperations.Run(_map, "regenerate map", m =>
+            {
+                // Half an operation: the document is gone and the scene is empty by the time this
+                // throws, which is the state the runner has to be able to walk back out of.
+                m.Clear();
+                throw new System.InvalidOperationException("no catalog assigned");
+            });
+
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Error, Is.EqualTo("no catalog assigned"));
+            Assert.That(ArenaJson.SerializeWorld(_map.Document), Is.EqualTo(before),
+                "a half-run operation is reverted, not left in the document");
+            Assert.That(Undo.GetCurrentGroup(), Is.EqualTo(group),
+                "and it leaves no undo step behind for the user to step through");
+        }
+
         // --- the heatmap ramp ---------------------------------------------------------------
 
         [Test]

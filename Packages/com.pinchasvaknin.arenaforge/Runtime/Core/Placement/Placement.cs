@@ -45,6 +45,13 @@ namespace ArenaForge.Core
         public IReadOnlyList<string> Tags { get; }
 
         /// <summary>A candidate at a whole number of quarter turns. The footprint stays exact.</summary>
+        /// <remarks>
+        /// The pose sits at <see cref="CatalogEntry.BaseOffset"/> rather than at zero, so the
+        /// underside of the art lands on the surface it is being stood on rather than inside it.
+        /// Every caller then adds the height of that surface — a storey's elevation, the ground —
+        /// on the way out, which is why the lift belongs here: it is a fact about the art, and the
+        /// callers are each about a different surface.
+        /// </remarks>
         /// <exception cref="ArgumentNullException"><paramref name="entry"/> is null.</exception>
         public static Placement AtQuarterTurn(CatalogEntry entry, Vec2 position, int quarterTurns)
         {
@@ -55,12 +62,13 @@ namespace ArenaForge.Core
 
             return new Placement(
                 entry.LogicalId,
-                new Pose(position.ToVec3(0f), QuarterTurn.Rotation(quarterTurns), 1f),
+                new Pose(position.ToVec3(entry.BaseOffset), QuarterTurn.Rotation(quarterTurns), 1f),
                 QuarterTurn.Rotate(entry.Footprint, quarterTurns).Translated(position),
                 entry.Tags);
         }
 
         /// <summary>A candidate at a whole number of <see cref="YawStep"/>s.</summary>
+        /// <remarks>Stood on its own base, as <see cref="AtQuarterTurn"/> is.</remarks>
         /// <exception cref="ArgumentNullException"><paramref name="entry"/> is null.</exception>
         public static Placement AtYawStep(CatalogEntry entry, Vec2 position, int steps)
         {
@@ -71,7 +79,7 @@ namespace ArenaForge.Core
 
             return new Placement(
                 entry.LogicalId,
-                new Pose(position.ToVec3(0f), YawStep.Rotation(steps), 1f),
+                new Pose(position.ToVec3(entry.BaseOffset), YawStep.Rotation(steps), 1f),
                 YawStep.Bounds(entry.Footprint, steps).Translated(position),
                 entry.Tags);
         }

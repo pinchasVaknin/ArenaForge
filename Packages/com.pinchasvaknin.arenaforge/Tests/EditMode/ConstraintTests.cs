@@ -6,7 +6,7 @@ using NUnit.Framework;
 namespace ArenaForge.Tests
 {
     /// <summary>
-    /// The eight placement rules, one at a time, plus the pieces the placer is built out of: the
+    /// The eleven placement rules, one at a time, plus the pieces the placer is built out of: the
     /// open-cell grid, the sampler and the yaw table.
     /// </summary>
     /// <remarks>
@@ -169,6 +169,100 @@ namespace ArenaForge.Tests
             Assert.That(set.Evaluate(Crate_At(0f, justOutside)).IsOk, Is.True);
         }
 
+        // --- the four rules a room's contents are placed under -------------------------------------
+
+        /// <remarks>
+        /// Measured against the region rather than against a committed wall, because a building's
+        /// walls are art rather than placed objects: the region a room's decor is proposed into is
+        /// bounded by exactly the walls that enclose it.
+        /// </remarks>
+        [Test]
+        public void AgainstWallRejectsAFootprintOutInTheMiddleOfTheFloor()
+        {
+            var room = new Rect2(-5f, -5f, 5f, 5f);
+            var set = new ConstraintSet(room, new[] { PlacementConstraint.AgainstWall(0.25f) });
+
+            Assert.That(set.Evaluate(Crate_At(-4.5f, 0f)).IsOk, Is.True, "flush with the west wall");
+            Assert.That(set.Evaluate(Crate_At(0f, 4.5f)).IsOk, Is.True, "flush with the north wall");
+            Assert.That(set.Evaluate(Crate_At(-4.25f, 0f)).IsOk, Is.True, "within the reach of it");
+            Assert.That(set.Evaluate(Crate_At(0f, 0f)).IsOk, Is.False, "the middle of the room");
+            Assert.That(set.Evaluate(Crate_At(-3f, 0f)).IsOk, Is.False, "two metres out from the wall");
+        }
+
+        /// <remarks>
+        /// Strictly stronger than <see cref="ConstraintKind.AgainstWall"/>, and the two axes are
+        /// kept apart on purpose: a footprint touching both the low and the high X edge — which a
+        /// cupboard in a room barely wider than it is produces — is against a wall, not in a
+        /// corner.
+        /// </remarks>
+        [Test]
+        public void InCornerWantsTwoWallsAtOnceRatherThanOneTwice()
+        {
+            var room = new Rect2(-5f, -5f, 5f, 5f);
+            var set = new ConstraintSet(room, new[] { PlacementConstraint.InCorner(0.25f) });
+
+            Assert.That(set.Evaluate(Crate_At(-4.5f, -4.5f)).IsOk, Is.True);
+            Assert.That(set.Evaluate(Crate_At(4.5f, -4.5f)).IsOk, Is.True);
+            Assert.That(set.Evaluate(Crate_At(-4.5f, 0f)).IsOk, Is.False, "against one wall only");
+
+            var slot = new ConstraintSet(
+                new Rect2(-0.5f, -5f, 0.5f, 5f), new[] { PlacementConstraint.InCorner(0.25f) });
+
+            Assert.That(slot.Evaluate(Crate_At(0f, 0f)).IsOk, Is.False,
+                "touching both sides of a narrow room is not a corner");
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The exact negation of <see cref="ConstraintKind.AgainstWall"/>, over the same predicate
+        /// and the same distance. Reaching one wall is enough to fail it, which is what makes the
+        /// middle of a room the floor that is neither against a wall nor in a corner rather than a
+        /// third idea of where the middle is.
+        /// </para>
+        /// <para>
+        /// The narrow room is the case the two axes being kept apart pays for a second time. A
+        /// crate touching both sides of a slot is against a wall by the first rule and cannot be in
+        /// the middle by this one, however exactly it is centred between them — a metre-wide
+        /// corridor has no middle to stand a table in.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void InCentreWantsNoWallWithinReachAtAll()
+        {
+            var room = new Rect2(-5f, -5f, 5f, 5f);
+            var set = new ConstraintSet(room, new[] { PlacementConstraint.InCentre(0.25f) });
+
+            Assert.That(set.Evaluate(Crate_At(0f, 0f)).IsOk, Is.True, "the middle of the room");
+            Assert.That(set.Evaluate(Crate_At(-3f, 0f)).IsOk, Is.True, "two metres out from the wall");
+            Assert.That(set.Evaluate(Crate_At(-4.25f, 0f)).IsOk, Is.False, "within reach of one wall");
+            Assert.That(set.Evaluate(Crate_At(-4.5f, 0f)).IsOk, Is.False, "flush with the west wall");
+            Assert.That(set.Evaluate(Crate_At(-4.5f, -4.5f)).IsOk, Is.False, "in a corner");
+
+            var slot = new ConstraintSet(
+                new Rect2(-0.5f, -5f, 0.5f, 5f), new[] { PlacementConstraint.InCentre(0.25f) });
+
+            Assert.That(slot.Evaluate(Crate_At(0f, 0f)).IsOk, Is.False,
+                "a room no wider than the crate has no middle to stand it in");
+        }
+
+        [Test]
+        public void NearDoorwayIsTheOtherDirectionOfNotBlockingOne()
+        {
+            ConstraintSet set = SetOf(Layout(), PlacementConstraint.NearDoorway(2f));
+            set.AddDoorway(new Rect2(-1.25f, 4.5f, 1.25f, 5.5f));
+
+            Assert.That(set.Evaluate(Crate_At(0f, 7f)).IsOk, Is.True, "a metre from the opening");
+            Assert.That(set.Evaluate(Crate_At(0f, 12f)).IsOk, Is.False, "the far side of the room");
+        }
+
+        [Test]
+        public void NearDoorwayWithNoDoorwayToMeasureAgainstAcceptsEverything()
+        {
+            ConstraintSet set = SetOf(Layout(), PlacementConstraint.NearDoorway(1f));
+
+            Assert.That(set.Evaluate(Crate_At(20f, 20f)).IsOk, Is.True);
+        }
+
         [Test]
         public void TheFirstFailingConstraintIsTheOneReported()
         {
@@ -205,6 +299,10 @@ namespace ArenaForge.Tests
             Assert.That(PlacementConstraint.NoOverlap(0.75f).ToString(), Is.EqualTo("NoOverlap(0.75)"));
             Assert.That(PlacementConstraint.MinDistanceFrom("structure", 1.5f).ToString(),
                 Is.EqualTo("MinDistanceFrom(structure, 1.5)"));
+            Assert.That(PlacementConstraint.AgainstWall(0.25f).ToString(), Is.EqualTo("AgainstWall(0.25)"));
+            Assert.That(PlacementConstraint.InCorner(0.25f).ToString(), Is.EqualTo("InCorner(0.25)"));
+            Assert.That(PlacementConstraint.InCentre(1.2f).ToString(), Is.EqualTo("InCentre(1.2)"));
+            Assert.That(PlacementConstraint.NearDoorway(2f).ToString(), Is.EqualTo("NearDoorway(2)"));
         }
 
         [Test]

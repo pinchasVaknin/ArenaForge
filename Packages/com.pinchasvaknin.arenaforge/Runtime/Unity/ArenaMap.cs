@@ -61,6 +61,49 @@ namespace ArenaForge.Unity
         [Tooltip("Rotate cover to fifteen-degree steps instead of quarter turns.")]
         bool _fineCoverRotation;
 
+        [SerializeField]
+        [Min(0f)]
+        [Tooltip("Peak-to-trough height variation of the ground, in metres. Zero is a flat map.")]
+        float _terrainAmplitude;
+
+        [SerializeField]
+        [Min(0.5f)]
+        [Tooltip("How wide the largest rises and hollows are, in metres.")]
+        float _terrainFeatureSize = 20f;
+
+        [SerializeField]
+        [Min(0f)]
+        [Tooltip("How many redundant connections the road network lays over the one route it "
+            + "needs. Zero lays no roads at all.")]
+        float _roadDensity;
+
+        [SerializeField]
+        [Min(0.01f)]
+        [Tooltip("Carriageway width of a trunk road, in metres.")]
+        float _arteryWidth = 4f;
+
+        [SerializeField]
+        [Min(0.01f)]
+        [Tooltip("Carriageway width of a branch road, in metres.")]
+        float _pathWidth = 2f;
+
+        [SerializeField]
+        [Min(0.01f)]
+        [Tooltip("Steepest slope a road may be graded to, as rise over run.")]
+        float _maxRoadGradient = 0.25f;
+
+        [SerializeField]
+        [Tooltip("Optional. The terrain the generated ground is written into.")]
+        Terrain _terrain;
+
+        [SerializeField]
+        [Tooltip("Terrain layer the arteries are painted in. Negative paints no road surface.")]
+        int _arteryLayer = -1;
+
+        [SerializeField]
+        [Tooltip("Terrain layer the paths are painted in. Negative paints no road surface.")]
+        int _pathLayer = -1;
+
         // Hidden because a sixty-kilobyte string in an inspector is noise, not information. The
         // window shows what is in it; Save world... writes exactly these bytes.
         [SerializeField]
@@ -129,8 +172,127 @@ namespace ArenaForge.Unity
             set => _fineCoverRotation = value;
         }
 
+        /// <summary>Peak-to-trough height variation of the ground, in metres.</summary>
+        public float TerrainAmplitude
+        {
+            get => _terrainAmplitude;
+            set => _terrainAmplitude = value;
+        }
+
+        /// <summary>How wide the largest ground features are, in metres.</summary>
+        public float TerrainFeatureSize
+        {
+            get => _terrainFeatureSize;
+            set => _terrainFeatureSize = value;
+        }
+
+        /// <summary>
+        /// How many redundant connections the road network lays over the one route it needs, as a
+        /// multiple of the baseline. Zero disables the road stage entirely.
+        /// </summary>
+        /// <remarks>
+        /// Zero by default, for the reason <see cref="TerrainAmplitude"/> is: turning it up
+        /// changes the output of every map that already exists. The three below describe roads
+        /// that are not laid until this one is turned up.
+        /// </remarks>
+        public float RoadDensity
+        {
+            get => _roadDensity;
+            set => _roadDensity = value;
+        }
+
+        /// <summary>Carriageway width of a trunk road, in metres.</summary>
+        public float ArteryWidth
+        {
+            get => _arteryWidth;
+            set => _arteryWidth = value;
+        }
+
+        /// <summary>Carriageway width of a branch road, in metres.</summary>
+        /// <remarks>
+        /// Half the artery by default. The gap between the two is what tells a player which way is
+        /// the way through, so the pair is worth setting together.
+        /// </remarks>
+        public float PathWidth
+        {
+            get => _pathWidth;
+            set => _pathWidth = value;
+        }
+
+        /// <summary>Steepest slope a road may be graded to, as rise over run.</summary>
+        public float MaxRoadGradient
+        {
+            get => _maxRoadGradient;
+            set => _maxRoadGradient = value;
+        }
+
+        /// <summary>
+        /// The terrain the generated ground is written into, or null to leave the scene's ground
+        /// alone.
+        /// </summary>
+        /// <remarks>
+        /// Optional, and a map with an amplitude but no terrain is a map whose objects follow a
+        /// ground nothing draws. That is why <see cref="ArenaParams.TerrainAmplitude"/> is zero by
+        /// default: verticality is something you turn on once there is a terrain to put it on.
+        /// </remarks>
+        public Terrain Terrain
+        {
+            get => _terrain;
+            set => _terrain = value;
+        }
+
+        /// <summary>
+        /// Index of the terrain layer the arteries are painted in, or negative to paint nothing.
+        /// </summary>
+        /// <remarks>
+        /// Off by default, and for the reason the amplitude is zero by default: which layer of
+        /// somebody's terrain material is road is a fact about their art that this tool cannot
+        /// guess, and painting into a layer picked at random would replace ground the project
+        /// meant to be there. A project that has not set these gets the map it always got.
+        /// </remarks>
+        public int ArteryLayer
+        {
+            get => _arteryLayer;
+            set => _arteryLayer = value;
+        }
+
+        /// <summary>
+        /// Index of the terrain layer the paths are painted in, or negative to paint nothing.
+        /// </summary>
+        /// <remarks>
+        /// Separate from <see cref="ArteryLayer"/> rather than one road layer for both, because
+        /// the two classes are two kinds of road — a trunk is tarmac and a branch is a track — and
+        /// a project that wants one surface for both simply gives them the same index.
+        /// </remarks>
+        public int PathLayer
+        {
+            get => _pathLayer;
+            set => _pathLayer = value;
+        }
+
         /// <summary>The realiser that turns this map's document into GameObjects.</summary>
         public WorldRealizer Realizer => GetComponent<WorldRealizer>();
+
+        /// <summary>
+        /// The road network of the document as it was last realised, or null if this map has not
+        /// been realised since the assembly was loaded.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Kept so that a scene-view display of the roads has something to draw without rebuilding
+        /// one. A network is a routing sweep over the whole playfield — the expensive half of
+        /// rebuilding the ground — and anything that recomputed it to draw it would be paying that
+        /// per repaint per camera.
+        /// </para>
+        /// <para>
+        /// <strong>Not serialised, and null is a legitimate answer.</strong> It is derived from the
+        /// document exactly as the terrain is, so storing it would be storing the same map twice and
+        /// inviting the two to disagree. A caller that finds it null draws nothing rather than
+        /// building one: the network survives until the next domain reload, and the next Generate,
+        /// Regenerate or Load puts it back.
+        /// </para>
+        /// </remarks>
+        public RoadNetwork Roads { get; private set; }
 
         /// <summary>True if this map has been generated or loaded.</summary>
         public bool HasDocument => !string.IsNullOrEmpty(_worldJson);
@@ -186,6 +348,12 @@ namespace ArenaForge.Unity
             CoverDensity = _coverDensity,
             LowToHighCoverRatio = _lowToHighCoverRatio,
             FineCoverRotation = _fineCoverRotation,
+            TerrainAmplitude = _terrainAmplitude,
+            TerrainFeatureSize = _terrainFeatureSize,
+            RoadDensity = _roadDensity,
+            ArteryWidth = _arteryWidth,
+            PathWidth = _pathWidth,
+            MaxRoadGradient = _maxRoadGradient,
         };
 
         /// <summary>
@@ -211,6 +379,12 @@ namespace ArenaForge.Unity
             _coverDensity = parameters.CoverDensity;
             _lowToHighCoverRatio = parameters.LowToHighCoverRatio;
             _fineCoverRotation = parameters.FineCoverRotation;
+            _terrainAmplitude = parameters.TerrainAmplitude;
+            _terrainFeatureSize = parameters.TerrainFeatureSize;
+            _roadDensity = parameters.RoadDensity;
+            _arteryWidth = parameters.ArteryWidth;
+            _pathWidth = parameters.PathWidth;
+            _maxRoadGradient = parameters.MaxRoadGradient;
         }
 
         /// <summary>
@@ -253,23 +427,80 @@ namespace ArenaForge.Unity
         }
 
         /// <summary>Realises the document this map holds, replacing whatever is in the scene.</summary>
+        /// <remarks>
+        /// The ground goes down before the objects that stand on it, and it is rebuilt from the
+        /// document rather than remembered: a map loaded from a file has never had its terrain
+        /// written, and a map whose seed has just changed has the wrong one.
+        /// </remarks>
         public ResolvedWorld Realize()
         {
             WorldDoc doc = Document;
             if (doc == null)
             {
+                Roads = null;
                 Realizer.Derealize();
                 return new ResolvedWorld(Array.Empty<PlacedObject>(), Array.Empty<EditOverride>());
             }
 
+            // The ground and the network come out of one call, because rebuilding the network is
+            // the expensive half of rebuilding the ground and a second call would do it twice. A
+            // map with no terrain still gets its network kept — nothing is written anywhere, but
+            // what the roads are is a fact about the document rather than about the ground being
+            // drawn, and the scene-view display is entitled to it either way.
+            TerrainField ground = ArenaLayoutGenerator.Terrain(doc, out RoadNetwork roads);
+            Roads = roads;
+
+            if (_terrain != null)
+            {
+                TerrainWriter.Apply(ground, _terrain, transform);
+
+                // After the heights, because the splat is written over the window the network
+                // reaches and the terrain has to be the right size and in the right place before
+                // that window means anything. Both are off by default: see ArteryLayer.
+                if (_arteryLayer >= 0 && _pathLayer >= 0)
+                {
+                    TerrainSplatWriter.Apply(roads, ground, _terrain, _arteryLayer, _pathLayer);
+                }
+            }
+
             return Realizer.Realize(doc);
+        }
+
+        /// <summary>
+        /// Flattens the terrain to the height of the world origin, or to the bottom of the terrain if the origin is below it.
+        /// </summary>
+        private void FlattenTerrain()
+        {
+            if (_terrain != null)
+            {
+                TerrainData tData = _terrain.terrainData;
+                int res = tData.heightmapResolution;
+
+                float worldZeroHeight = (0f - _terrain.transform.position.y) / tData.size.y;
+
+                worldZeroHeight = Mathf.Clamp01(worldZeroHeight);
+
+                float[,] flatHeights = new float[res, res];
+
+                for (int i = 0; i < res; i++)
+                {
+                    for (int j = 0; j < res; j++)
+                    {
+                        flatHeights[i, j] = worldZeroHeight;
+                    }
+                }
+
+                tData.SetHeights(0, 0, flatHeights);
+            }
         }
 
         /// <summary>Drops the document and takes the realised map out of the scene.</summary>
         [ContextMenu("Clear")]
         public void Clear()
         {
+            Roads = null;
             Realizer.Derealize();
+            FlattenTerrain();
             SetDocument(null);
         }
 

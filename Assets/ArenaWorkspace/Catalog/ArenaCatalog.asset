@@ -1,0 +1,699 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d672351b64fa7e04cb5d67ccd2c05b8f, type: 3}
+  m_Name: ArenaCatalog
+  m_EditorClassIdentifier: ArenaForge.Unity::ArenaForge.Unity.CatalogAsset
+  _rows:
+  - LogicalId: cover/high/barrel1_lod_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 1.1699926, y: 1.5344408}
+    FootprintOffset: {x: -0.000000059604645, y: 0.7672199}
+    Height: 0.57610893
+    BaseOffset: 0.57610893
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1497016967688331393, guid: e30de5b66bce61e458df28f1de2630d8, type: 3}
+  - LogicalId: cover/high/barrel2_lod_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 1.1699926, y: 1.5344408}
+    FootprintOffset: {x: -0.000000059604645, y: 0.7672199}
+    Height: 0.57610893
+    BaseOffset: 0.57610893
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6965947855844361932, guid: 5b2253191869c4e418d9bb317993e242, type: 3}
+  - LogicalId: cover/high/barrel3_lod_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 1.1699926, y: 1.5344408}
+    FootprintOffset: {x: -0.000000059604645, y: 0.7672199}
+    Height: 0.57610893
+    BaseOffset: 0.57610893
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 5559681691096969916, guid: 4abcaf89bf905b5448aaff82b52225a1, type: 3}
+  - LogicalId: cover/high/dumpster_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 1.8000001, y: 1.1341119}
+    FootprintOffset: {x: -0.00000023841858, y: 0.0034929514}
+    Height: 1.372175
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2655926722387459826, guid: 3babec9a57c51d54ba0d1e83b386a9ce, type: 3}
+  - LogicalId: cover/high/scaffolding_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 5.272998, y: 2.735692}
+    FootprintOffset: {x: -1.911335, y: 0.8331749}
+    Height: 3.805475
+    BaseOffset: 0.010645628
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2654595784687695286, guid: 664e0b5f1f710994c84962986d744b7e, type: 3}
+  - LogicalId: cover/high/watertank_variant
+    Tags:
+    - cover
+    - cover/high
+    FootprintSize: {x: 2.0174794, y: 2.0084288}
+    FootprintOffset: {x: 0.78597903, y: 0.24609548}
+    Height: 2.070865
+    BaseOffset: 0.060489178
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 8167301336567639975, guid: 98741efbaf82fa0468dc1f55e1a67f3c, type: 3}
+  - LogicalId: cover/low/cinderblock_variant
+    Tags:
+    - cover
+    - cover/low
+    FootprintSize: {x: 0.922355, y: 0.40000015}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.36
+    BaseOffset: 0.040000066
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 9103557142804871727, guid: 8be6a02bcc21b054db26ca02c17a3470, type: 3}
+  - LogicalId: cover/low/constructioncone_variant
+    Tags:
+    - cover
+    - cover/low
+    FootprintSize: {x: 0.7495823, y: 0.7495822}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1.0895109
+    BaseOffset: 0.002530098
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4912139652190695531, guid: c82169c5cfd086f46b5e77689d2913ef, type: 3}
+  - LogicalId: cover/low/hqbigrock_variant
+    Tags:
+    - cover
+    - cover/low
+    FootprintSize: {x: 1.6511643, y: 1.1472373}
+    FootprintOffset: {x: 0.013894558, y: -0.037684202}
+    Height: 0.70421934
+    BaseOffset: 0.029248595
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 7322879586898510669, guid: eba5eb54f9fe07948b15bff1cd82ad3a, type: 3}
+  - LogicalId: cover/low/pallet_variant
+    Tags:
+    - cover
+    - cover/low
+    FootprintSize: {x: 2.929348, y: 3.0336995}
+    FootprintOffset: {x: -0.042632103, y: -0.009542942}
+    Height: 0.3297013
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1318028612083698649, guid: 1ecb81cc923d5b94a8a881c50a851b60, type: 3}
+  - LogicalId: fence/stonefence/wallll
+    Tags:
+    - fence
+    - fence/stonefence
+    FootprintSize: {x: 30, y: 0.5}
+    FootprintOffset: {x: 1.9998817, y: -2.4816399}
+    Height: 13.689501
+    BaseOffset: 16.3105
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6710701087186681545, guid: ff7263b2995b8f94c852389c3dea5b37, type: 3}
+  - LogicalId: fence/woodfence/fence_variant
+    Tags:
+    - fence
+    - fence/woodfence
+    FootprintSize: {x: 3.5, y: 0.25}
+    FootprintOffset: {x: 0.5, y: -0.099999994}
+    Height: 4
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6534416856346309949, guid: 56302bebeec5b984195476fc5b27d16a, type: 3}
+  - LogicalId: propbuilding/decor/centerpieces/metaltable_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/centerpieces
+    FootprintSize: {x: 1.4633789, y: 0.8931885}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.6323929
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 7334793292372009296, guid: 461c9825550bca74aa4465f7841fba3e, type: 3}
+  - LogicalId: propbuilding/decor/centerpieces/roundtable_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/centerpieces
+    FootprintSize: {x: 1.9578247, y: 1.9435425}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.825531
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1171599632532432246, guid: 111f2011929f6fb4f85b6dcf33f5f8b9, type: 3}
+  - LogicalId: propbuilding/decor/corners/coleus02
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.53956306, y: 0.6476282}
+    FootprintOffset: {x: 0, y: 0.0030233264}
+    Height: 0.93265927
+    BaseOffset: 0.25022706
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1887040825657658919, guid: d5bb74bc4179cff4c81b8c71b25ee601, type: 3}
+  - LogicalId: propbuilding/decor/corners/composition_23
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.5457659, y: 0.5400407}
+    FootprintOffset: {x: 0.0031014085, y: -0.00023880601}
+    Height: 1.2043724
+    BaseOffset: 0.25022706
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1047758692986229711, guid: 15f902b4a94d92040a98a03e41aa2c09, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_flowerstand_01_lod_set
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.5457659, y: 0.5400407}
+    FootprintOffset: {x: 0.0031014085, y: -0.00023880601}
+    Height: 1.1869725
+    BaseOffset: 0.25022706
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3869308586396477065, guid: bddb40620e95389498b4de74f00b1903, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_flowerstand_01_lod_set_1
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.74605703, y: 0.7252464}
+    FootprintOffset: {x: -0.04472381, y: 0.013026863}
+    Height: 1.7919618
+    BaseOffset: 0.2502271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2205992118527518876, guid: 97ab5272156d0934e8640ea25cd30972, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_flowerstand_01_lod_set_2
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.53956306, y: 0.6476282}
+    FootprintOffset: {x: 0, y: 0.0030233264}
+    Height: 0.93265927
+    BaseOffset: 0.25022706
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4375867446420329903, guid: c554c72322934e14ebd498bc037e3826, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_flowerstand_02_lod_set
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.43310434, y: 0.42289716}
+    FootprintOffset: {x: 0.004235357, y: -0.0047587305}
+    Height: 1.3074925
+    BaseOffset: 0.5002271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4307596484918322649, guid: 3fca45c49a7ab6c4fb480b886f50fad6, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_foliageplant_08_lod_set
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.5356039, y: 0.45217806}
+    FootprintOffset: {x: -0.01350987, y: -0.008204132}
+    Height: 0.888006
+    BaseOffset: 0.5002271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 8824795644562225978, guid: 4896ce321aa9a91468f1491b802d2e76, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_foliageplant_09_lod_set
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.41337973, y: 0.41337973}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.85387623
+    BaseOffset: 0.5002271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1308720518768000485, guid: 3fe08d25502d84043b9895cc35d2feb6, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_foliageplant_12_lod_set
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.5330331, y: 0.46249628}
+    FootprintOffset: {x: -0.013348341, y: -0.012674779}
+    Height: 0.91336715
+    BaseOffset: 0.5002271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4629530255956686746, guid: 4e2f687076d6d104b89e7aad0f012f74, type: 3}
+  - LogicalId: propbuilding/decor/corners/furniture_foliageplant_12_lod_set_1
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 1.5830287, y: 1.2018713}
+    FootprintOffset: {x: 0.48365384, y: -0.28698725}
+    Height: 0.741737
+    BaseOffset: 0.7502271
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2913244988055782116, guid: c76c31323281e824db4b0dad2169c210, type: 3}
+  - LogicalId: propbuilding/decor/corners/monstera
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/corners
+    FootprintSize: {x: 0.6548918, y: 0.67435205}
+    FootprintOffset: {x: -0.049063534, y: 0.027855068}
+    Height: 1.1810783
+    BaseOffset: 0.25022706
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4326695978523600469, guid: 87ebdf4834986ea4098f7ea6b0a181e0, type: 3}
+  - LogicalId: propbuilding/decor/decoration/bigcloset_wrapped
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/decoration
+    FootprintSize: {x: 1.5214462, y: 0.84924316}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 2.8148346
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 1724847238226377712, guid: 32b06fadc317edb47b29bcd55df9b22f, type: 3}
+  - LogicalId: propbuilding/decor/decoration/mirrorcomode2_wrapped
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/decoration
+    FootprintSize: {x: 1.018204, y: 0.607481}
+    FootprintOffset: {x: -0.0063260198, y: 7.584283}
+    Height: 2.163208
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6040513252768794624, guid: 8ff6132e4ddd9504f9839b08c1bb0dae, type: 3}
+  - LogicalId: propbuilding/decor/decoration/sm_cabinet_wrapped
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/decoration
+    FootprintSize: {x: 1.0416847, y: 0.5493266}
+    FootprintOffset: {x: -0.00000047683716, y: 0}
+    Height: 1.9836905
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 8255423078992836476, guid: 04167714f7feb0c4e8a24c4959a0fe4d, type: 3}
+  - LogicalId: propbuilding/decor/interiorcovers/3seat4_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/interiorcovers
+    FootprintSize: {x: 4.1745796, y: 1.6689062}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1.2817855
+    BaseOffset: 0.014199734
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3076714232259115169, guid: fc9d637f04890d648ae421469792fc96, type: 3}
+  - LogicalId: propbuilding/decor/interiorcovers/chair_wrapped
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/interiorcovers
+    FootprintSize: {x: 0.7078738, y: 0.7843061}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1.3834141
+    BaseOffset: 0.0020804405
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 588441853644928327, guid: 115b39a9f38ec2240b4d49910aa42293, type: 3}
+  - LogicalId: propbuilding/decor/interiorcovers/couch_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/interiorcovers
+    FootprintSize: {x: 3.3348267, y: 1.4747254}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1.6925567
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6447896643828765822, guid: 5051c4ab97079bd48adf79f04cfe9dff, type: 3}
+  - LogicalId: propbuilding/decor/interiorcovers/fotel_wrapped
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/interiorcovers
+    FootprintSize: {x: 2.1940062, y: 1.6103759}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1.2468841
+    BaseOffset: 0.0036529303
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6143634073002735112, guid: 9a770b3698207b245bfac6bdd51370be, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/p_bush01
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 1.3886774, y: 1.3440034}
+    FootprintOffset: {x: -0.022838712, y: -0.024980962}
+    Height: 1.3816614
+    BaseOffset: 0.046103895
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 5877814308903578233, guid: e742688199fc5f046aed22a53a620b7c, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/p_bush02
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 1.1629474, y: 1.239347}
+    FootprintOffset: {x: 0.01059258, y: -0.11731517}
+    Height: 1.074907
+    BaseOffset: 0.110827
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 6911413985795287756, guid: ce343777fc1b0fd41815d0b3f43b3721, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/p_bush03
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 1.407862, y: 1.479182}
+    FootprintOffset: {x: -0.014607489, y: -0.04312128}
+    Height: 1.466058
+    BaseOffset: 0.03261894
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3180918808541946329, guid: e228cf1426993524dbe7902ba4d4ce8f, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/p_bush04
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 1.6166177, y: 1.5946198}
+    FootprintOffset: {x: -0.07283896, y: 0.083702624}
+    Height: 1.247663
+    BaseOffset: 0.171139
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3597067109591993293, guid: 52401135ce5dffe489c019f131a0512a, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/p_bush05
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 1.308433, y: 1.3115702}
+    FootprintOffset: {x: -0.05451411, y: -0.050213635}
+    Height: 1.0116303
+    BaseOffset: 0.076310754
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3235140031850674212, guid: e6de51bf9dbc9274b957b332b03d1357, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/continuearound/pots
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/continuearound
+    FootprintSize: {x: 0.8854121, y: 3.027973}
+    FootprintOffset: {x: 0.1179764, y: 0.12623513}
+    Height: 1.54044
+    BaseOffset: 0.22571874
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 7427845502400788697, guid: d8b422e06d86a8d42962239e2ef9b442, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/uniquegroup/metalcabinetddwalledfull04_1_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/uniquegroup
+    FootprintSize: {x: 1.0000002, y: 0.56045854}
+    FootprintOffset: {x: 0, y: -0.00000029802322}
+    Height: 2
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4110348008734488121, guid: fad2264c49fac884e932083004802841, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/uniquegroup/metalcabinetddwalledfull04_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/uniquegroup
+    FootprintSize: {x: 1.0000002, y: 0.56045854}
+    FootprintOffset: {x: 0, y: -0.00000029802322}
+    Height: 2
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2835560041337054586, guid: 7f651b8a39f6bbb4b9bfe9b11942bfe8, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/uniquegroup/metalcabinetopen02__1__variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/uniquegroup
+    FootprintSize: {x: 1, y: 0.5}
+    FootprintOffset: {x: 0, y: -0.030229568}
+    Height: 2
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3555545212333635045, guid: fc0517eab5f0a7141935d9e5fa50fd51, type: 3}
+  - LogicalId: propbuilding/decor/outdecor/uniquegroup/metalcabinetopen02_variant
+    Tags:
+    - propbuilding
+    - propbuilding/decor
+    - propbuilding/decor/outdecor
+    - propbuilding/decor/outdecor/uniquegroup
+    FootprintSize: {x: 1, y: 0.5}
+    FootprintOffset: {x: 0, y: -0.030229568}
+    Height: 2
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 718370044568837359, guid: 0217d422531e4454f9464405e4e29c88, type: 3}
+  - LogicalId: road/furniture/gameobject
+    Tags:
+    - road
+    - road/furniture
+    FootprintSize: {x: 2, y: 1}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 4
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 3780016330123369638, guid: 1e93dfaf041dfd942bc7cd4291e03083, type: 3}
+  - LogicalId: road/kerb/kerb_01
+    Tags:
+    - road
+    - road/kerb
+    FootprintSize: {x: 0.2, y: 1}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.1
+    BaseOffset: 0.1
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4219084748100043842, guid: 4d3325a29f029824bb94178d150a8915, type: 3}
+  - LogicalId: spawn/marker_spawn
+    Tags:
+    - spawn
+    FootprintSize: {x: 4, y: 4}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.25
+    BaseOffset: 0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 9131278905674658779, guid: f656248857e377140849903f36b250e2, type: 3}
+  - LogicalId: structure/building/mybuilding
+    Tags:
+    - structure
+    - structure/building
+    FootprintSize: {x: 18.2, y: 18.2}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 10.499999
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways:
+    - Center: {x: 0, y: -9}
+      Size: {x: 2, y: 1}
+    - Center: {x: 0, y: 9}
+      Size: {x: 2, y: 1}
+    Prefab: {fileID: 430234860063262373, guid: d1ff4126aa8eeae45be431731d9ee2a6, type: 3}
+  - LogicalId: structure/doorway/structure_doorway_frame_2m
+    Tags:
+    - structure
+    - structure/doorway
+    FootprintSize: {x: 2, y: 0.2}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 2.9
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 4037460419682416328, guid: 25e73fba661461f43a08728c4f14c458, type: 3}
+  - LogicalId: structure/floor/myfloor_1x1
+    Tags:
+    - structure
+    - structure/floor
+    FootprintSize: {x: 1, y: 1}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 0.2
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 545490266106042978, guid: b656e05c0f94b334b8bcdd4df894f13e, type: 3}
+  - LogicalId: structure/house/mybuilding_s_00
+    Tags:
+    - structure
+    - structure/house
+    FootprintSize: {x: 18.2, y: 18.2}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 4.3
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways:
+    - Center: {x: 2, y: -9}
+      Size: {x: 2, y: 1}
+    - Center: {x: 6, y: 9}
+      Size: {x: 2, y: 1}
+    Prefab: {fileID: 1703954878539323672, guid: 3fdf4494fc8fdb542a0ba4f0f1e15df6, type: 3}
+  - LogicalId: structure/parapet/myfence_gen
+    Tags:
+    - structure
+    - structure/parapet
+    FootprintSize: {x: 1, y: 0.1}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 1
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 2185943080988352177, guid: 44b4c4c6a7de21e41b34e9b30e7a56f9, type: 3}
+  - LogicalId: structure/stairs/mystairs_gen
+    Tags:
+    - structure
+    - structure/stairs
+    FootprintSize: {x: 2, y: 3}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 3
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 8778231547389546478, guid: ca090c5ec0724924c90b7770f4b86b44, type: 3}
+  - LogicalId: structure/wall/structure_wall_panel_2m
+    Tags:
+    - structure
+    - structure/wall
+    FootprintSize: {x: 2, y: 0.2}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 2.9
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 7578655523775563330, guid: 5838fc3e5d3475a418dae61f39c92054, type: 3}
+  - LogicalId: structure/window/mywindow_gen
+    Tags:
+    - structure
+    - structure/window
+    FootprintSize: {x: 2, y: 0.2}
+    FootprintOffset: {x: 0, y: 0}
+    Height: 2.9
+    BaseOffset: -0
+    Weight: 1
+    Sockets: []
+    Doorways: []
+    Prefab: {fileID: 980686316419156684, guid: 844d937dd670ce44986596e6064dc5e3, type: 3}
+  _sourceFolder: Assets/ArenaWorkspace

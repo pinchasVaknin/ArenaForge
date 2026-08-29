@@ -22,6 +22,9 @@
                 <ui:FloatField name="cover-density" label="Cover density" />
                 <ui:FloatField name="low-high-ratio" label="Low : high cover" />
                 <ui:Toggle name="fine-rotation" label="Fine cover rotation" />
+                <ui:FloatField name="terrain-amplitude" label="Terrain relief (m)" />
+                <ui:FloatField name="terrain-feature" label="Terrain feature (m)" />
+                <ui:Label class="af-help" text="Relief is the height between the lowest ground and the highest. It moves what the map stands on, so give the map a Terrain to write it into — without one the props follow ground nothing draws." />
                 <ui:FloatField name="eye-height" label="Eye height (m)" />
                 <ui:Label class="af-help" text="Eye height measures the map; it is not part of the document, so changing it re-analyses without regenerating." />
             </ui:Foldout>

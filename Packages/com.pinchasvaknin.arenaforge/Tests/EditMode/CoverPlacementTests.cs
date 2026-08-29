@@ -479,7 +479,10 @@ namespace ArenaForge.Tests
 
             WorldDoc doc = Generate(4UL, catalog);
 
-            Assert.That(doc.GeneratedObjects.Count, Is.EqualTo(4));
+            Assert.That(
+                doc.GeneratedObjects.Count,
+                Is.EqualTo(2 + PlacedGeometry.Structures(doc).Count),
+                "two spawn markers and the structures the ground paid for, and nothing else");
             Assert.That(TargetOf(doc), Is.EqualTo(0));
         }
 

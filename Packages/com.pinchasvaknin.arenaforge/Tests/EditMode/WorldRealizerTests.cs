@@ -214,7 +214,10 @@ namespace ArenaForge.Tests
 
             _realizer.Realize(doc);
 
-            Assert.That(_realizer.RealizedCount, Is.EqualTo(4));
+            Assert.That(
+                _realizer.RealizedCount,
+                Is.EqualTo(2 + PlacedGeometry.Structures(doc).Count),
+                "both spawn markers and every structure the composition rule asks for");
             Assert.That(_realizer.Root.GetChild(0).GetComponent<ArenaObjectRef>().StableId,
                 Is.EqualTo("map/spawn_a/marker"));
         }

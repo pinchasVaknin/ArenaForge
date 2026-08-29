@@ -145,6 +145,16 @@ namespace ArenaForge.Core
                     return "not_blocking_doorway";
                 case ConstraintKind.ClearOfSpawn:
                     return "clear_of_spawn";
+                case ConstraintKind.AgainstWall:
+                    return "against_wall";
+                case ConstraintKind.InCorner:
+                    return "in_corner";
+                case ConstraintKind.InCentre:
+                    return "in_centre";
+                case ConstraintKind.NearDoorway:
+                    return "near_doorway";
+                case ConstraintKind.OffReservedPath:
+                    return "off_reserved_path";
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unnamed constraint kind.");
             }

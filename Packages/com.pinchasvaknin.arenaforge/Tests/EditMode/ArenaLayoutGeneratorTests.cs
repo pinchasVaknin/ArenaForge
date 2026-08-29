@@ -24,11 +24,14 @@ namespace ArenaForge.Tests
         static PlacedObject Single(WorldDoc doc, string tag) =>
             doc.GeneratedObjects.Single(o => o.Tags.Contains(tag));
 
+        static IReadOnlyList<PlacedObject> Tagged(WorldDoc doc, string tag) =>
+            doc.GeneratedObjects.Where(o => o.Tags.Contains(tag)).ToList();
+
         static Rect2 WorldFootprint(PlacedObject placed, Catalog catalog) =>
             PlacedGeometry.WorldFootprint(placed, catalog);
 
         [Test]
-        public void AMapHasTwoSpawnMarkersAndTwoStructures()
+        public void AMapHasTwoSpawnMarkersAndTheStructuresTheCompositionRuleAsksFor()
         {
             WorldDoc doc = Generate(20260816UL);
 
@@ -39,21 +42,45 @@ namespace ArenaForge.Tests
             Assert.That(
                 doc.GeneratedObjects.Where(o => o.Tags.Contains("spawn")).Select(o => o.StableId),
                 Is.EqualTo(new[] { "map/spawn_a/marker", "map/spawn_b/marker" }));
-            Assert.That(Structures(doc).Count, Is.EqualTo(2));
+            Assert.That(Structures(doc).Count, Is.EqualTo(3));
             Assert.That(Single(doc, "structure/building").StableId, Is.EqualTo("map/lane_mid/structure_00"));
-            Assert.That(Single(doc, "structure/house").StableId, Does.StartWith("map/lane_")
-                .And.EndsWith("/structure_00"));
+
+            foreach (PlacedObject house in Tagged(doc, "structure/house"))
+            {
+                Assert.That(house.StableId, Does.StartWith("map/lane_").And.EndsWith("/structure_00"));
+            }
         }
 
+        /// <remarks>
+        /// A flank each, not merely a flank. The composition rule asks for one house per flank, and
+        /// two of them in the same lane would be two anchors on one route and none on the other —
+        /// which is the thing the shuffle in <c>FlankLanes</c> exists to rule out, and the thing a
+        /// weighted draw per house would have got wrong about one map in two.
+        /// </remarks>
+        /// <remarks>
+        /// A property of the default map rather than of every map, and the layout cells are why: a
+        /// sixty-metre playfield divides into one cell per lane — see
+        /// <see cref="ArenaLayoutGenerator.StructureCells"/> — so a lane there holds one structure
+        /// or none, and the one in the middle lane is the map's anchor. A four-hundred-metre map
+        /// puts a dozen cells in every lane and this says nothing about it.
+        /// </remarks>
         [Test]
-        public void TheHouseGoesInAFlankLane()
+        public void EveryLaneOfTheDefaultMapAnchorsOneStructureAtMost()
         {
             for (ulong seed = 1; seed <= 100; seed++)
             {
                 WorldDoc doc = Generate(seed);
-                string lane = Single(doc, "structure/house").Metadata[ArenaLayoutGenerator.LaneKey];
+                var lanes = new List<string>();
 
-                Assert.That(lane, Is.Not.EqualTo("lane_mid"), $"seed {seed}");
+                foreach (PlacedObject structure in Tagged(doc, ArenaLayoutGenerator.StructureTag))
+                {
+                    string lane = structure.Metadata[ArenaLayoutGenerator.LaneKey];
+                    Assert.That(lanes, Does.Not.Contain(lane),
+                        $"seed {seed}: two structures in {lane}");
+                    lanes.Add(lane);
+                }
+
+                Assert.That(lanes, Does.Contain("lane_mid"), $"seed {seed}: the middle lane is bare");
             }
         }
 
@@ -100,16 +127,18 @@ namespace ArenaForge.Tests
             {
                 WorldDoc doc = Generate(seed);
                 Vec3 building = Single(doc, "structure/building").Pose.Position;
-                Vec3 house = Single(doc, "structure/house").Pose.Position;
 
                 if (!buildings.Contains(building))
                 {
                     buildings.Add(building);
                 }
 
-                if (!houses.Contains(house))
+                foreach (PlacedObject placed in Tagged(doc, "structure/house"))
                 {
-                    houses.Add(house);
+                    if (!houses.Contains(placed.Pose.Position))
+                    {
+                        houses.Add(placed.Pose.Position);
+                    }
                 }
             }
 
@@ -242,6 +271,206 @@ namespace ArenaForge.Tests
             }
         }
 
+        /// <remarks>
+        /// The rectangles a row declares are the ones a map keeps clear, and they arrive turned the
+        /// way the structure was turned. A door modelled into the north wall of a house is in the
+        /// house's east wall once the map has laid it across a lane, and a clearance kept where the
+        /// row said it was is a clearance in front of the wrong wall — which is exactly the failure
+        /// the derived pair used to be: a gap in the cover in front of a blank facade, and crates
+        /// stacked against the actual door.
+        /// </remarks>
+        [Test]
+        public void AStructureThatDeclaresItsDoorwaysGetsThoseAndNotTheDerivedPair()
+        {
+            var declared = new[] { new Rect2(-1f, -3.5f, 1f, -2.5f), new Rect2(-1f, 2.5f, 1f, 3.5f) };
+            Catalog catalog = WithDoorways(TestWorlds.SampleCatalog(), HouseId, declared);
+
+            for (ulong seed = 1; seed <= 40; seed++)
+            {
+                WorldDoc doc = ArenaLayoutGenerator.Generate(Params(seed), catalog);
+
+                foreach (PlacedObject house in Tagged(doc, "structure/house"))
+                {
+                    List<Rect2> doorways = DoorwaysOf(house);
+                    Assert.That(doorways.Count, Is.EqualTo(ArenaLayoutGenerator.DoorwaysPerStructure),
+                        $"seed {seed}: {house.StableId}");
+
+                    int turns = QuarterTurnsOf(house);
+                    var expected = new List<Rect2>();
+                    for (int i = 0; i < declared.Length; i++)
+                    {
+                        expected.Add(QuarterTurn.Rotate(declared[i], turns)
+                            .Translated(house.Pose.Position.Xz));
+                    }
+
+                    for (int i = 0; i < doorways.Count; i++)
+                    {
+                        Assert.That(Matches(doorways[i], expected), Is.True,
+                            $"seed {seed}: {doorways[i]} is not one of the two the row declared");
+                    }
+                }
+            }
+        }
+
+        /// <remarks>
+        /// Exactly two, whatever the art says, and the two that are furthest apart. Three doors in
+        /// a row along one wall is a wall that is not there; two at opposite ends are what make a
+        /// structure something a player crosses rather than something they go round. The middle one
+        /// is the one that goes.
+        /// </remarks>
+        [Test]
+        public void AStructureThatDeclaresThreeDoorwaysKeepsTheTwoFurthestApart()
+        {
+            var near = new Rect2(-1f, -3.5f, 1f, -2.5f);
+            var middle = new Rect2(-1f, -0.5f, 1f, 0.5f);
+            var far = new Rect2(-1f, 2.5f, 1f, 3.5f);
+
+            Catalog catalog = WithDoorways(
+                TestWorlds.SampleCatalog(), HouseId, new[] { near, middle, far });
+
+            for (ulong seed = 1; seed <= 40; seed++)
+            {
+                WorldDoc doc = ArenaLayoutGenerator.Generate(Params(seed), catalog);
+
+                foreach (PlacedObject house in Tagged(doc, "structure/house"))
+                {
+                    List<Rect2> doorways = DoorwaysOf(house);
+                    Assert.That(doorways.Count, Is.EqualTo(ArenaLayoutGenerator.DoorwaysPerStructure),
+                        $"seed {seed}: {house.StableId}");
+
+                    Rect2 dropped = QuarterTurn.Rotate(middle, QuarterTurnsOf(house))
+                        .Translated(house.Pose.Position.Xz);
+
+                    Assert.That(Matches(dropped, doorways), Is.False,
+                        $"seed {seed}: the door between the other two was kept");
+                }
+            }
+        }
+
+        /// <remarks>
+        /// A row that declares one door still gets two, and the second is on the face further from
+        /// it. A structure with one way in is a dead end wherever the one way in happens to be, and
+        /// a second door beside the first is a wider dead end.
+        /// </remarks>
+        [Test]
+        public void AStructureThatDeclaresOneDoorwayIsToppedUpFromTheFarFace()
+        {
+            var declared = new Rect2(-1f, -3.5f, 1f, -2.5f);
+            Catalog catalog = WithDoorways(TestWorlds.SampleCatalog(), HouseId, new[] { declared });
+
+            for (ulong seed = 1; seed <= 40; seed++)
+            {
+                WorldDoc doc = ArenaLayoutGenerator.Generate(Params(seed), catalog);
+
+                foreach (PlacedObject house in Tagged(doc, "structure/house"))
+                {
+                    List<Rect2> doorways = DoorwaysOf(house);
+                    Rect2 footprint = WorldFootprint(house, catalog);
+
+                    Assert.That(doorways.Count, Is.EqualTo(ArenaLayoutGenerator.DoorwaysPerStructure),
+                        $"seed {seed}: {house.StableId}");
+
+                    Rect2 placed = QuarterTurn.Rotate(declared, QuarterTurnsOf(house))
+                        .Translated(house.Pose.Position.Xz);
+
+                    Assert.That(Matches(placed, doorways), Is.True,
+                        $"seed {seed}: the declared door was dropped");
+
+                    float apart = Apart(doorways[0], doorways[1]);
+                    float span = MathF.Max(footprint.Width, footprint.Depth);
+                    Assert.That(apart, Is.GreaterThan(0.5f * span),
+                        $"seed {seed}: the doors are {apart:0.##} m apart on a {span:0.##} m structure");
+                }
+            }
+        }
+
+        const string HouseId = "structure/house/small_01";
+
+        /// <summary>The same catalog with one entry declaring the doorways given.</summary>
+        static Catalog WithDoorways(Catalog catalog, string logicalId, Rect2[] doorways)
+        {
+            IReadOnlyList<CatalogEntry> entries = catalog.Entries;
+            var rebuilt = new CatalogEntry[entries.Count];
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                CatalogEntry entry = entries[i];
+                rebuilt[i] = entry.LogicalId == logicalId
+                    ? new CatalogEntry(
+                        entry.LogicalId, entry.Tags.ToArray(), entry.Footprint, entry.Height,
+                        entry.Weight, null, entry.BaseOffset, doorways)
+                    : entry;
+            }
+
+            return new Catalog(rebuilt);
+        }
+
+        static List<Rect2> DoorwaysOf(PlacedObject structure)
+        {
+            var doorways = new List<Rect2>();
+            int count = int.Parse(structure.Metadata[ArenaLayoutGenerator.DoorwayCountKey]);
+
+            for (int i = 0; i < count; i++)
+            {
+                doorways.Add(RectMetadata.Parse(
+                    structure.Metadata[ArenaLayoutGenerator.DoorwayKeyPrefix + i.ToString("00")]));
+            }
+
+            return doorways;
+        }
+
+        /// <summary>How many quarter turns a placed object was turned by.</summary>
+        static int QuarterTurnsOf(PlacedObject placed)
+        {
+            for (int turns = 0; turns < QuarterTurn.Count; turns++)
+            {
+                Quat rotation = QuarterTurn.Rotation(turns);
+                if (MathF.Abs(rotation.Y - placed.Pose.Rotation.Y) < 1e-4f &&
+                    MathF.Abs(rotation.W - placed.Pose.Rotation.W) < 1e-4f)
+                {
+                    return turns;
+                }
+            }
+
+            Assert.Fail($"{placed.StableId} is not at a quarter turn");
+            return 0;
+        }
+
+        static bool Matches(Rect2 rect, IReadOnlyList<Rect2> among)
+        {
+            for (int i = 0; i < among.Count; i++)
+            {
+                if (MathF.Abs(rect.MinX - among[i].MinX) < 1e-3f &&
+                    MathF.Abs(rect.MinZ - among[i].MinZ) < 1e-3f &&
+                    MathF.Abs(rect.MaxX - among[i].MaxX) < 1e-3f &&
+                    MathF.Abs(rect.MaxZ - among[i].MaxZ) < 1e-3f)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        static float Apart(Rect2 a, Rect2 b)
+        {
+            float x = a.Center.X - b.Center.X;
+            float z = a.Center.Y - b.Center.Y;
+            return MathF.Sqrt(x * x + z * z);
+        }
+
+        /// <remarks>
+        /// Read off the anchor rather than off "the building on the map", because a flank cell now
+        /// draws from the buildings as well as the houses — see
+        /// <c>ArenaLayoutGenerator.Fillable</c> — and a map with a hut on each flank has three
+        /// buildings on it. The anchor is the one slot whose art the density is being asked about.
+        ///
+        /// The dense half asks for a density of two rather than one. The budget a cell offers is
+        /// measured against a structure <em>and its yard</em>, and the twelve-by-ten building plus
+        /// two and a half metres all round is more ground than a quarter of a sixty-metre map's
+        /// cell — so at a density of one this catalog only ever affords the hut, which is the
+        /// composition that map is meant to have and not a test of anything.
+        /// </remarks>
         [Test]
         public void ALowerStructureDensityChoosesASmallerBuilding()
         {
@@ -252,7 +481,7 @@ namespace ArenaForge.Tests
                 WorldDoc sparse = ArenaLayoutGenerator.Generate(
                     new ArenaParams { Seed = seed, StructureDensity = 0.05f }, catalog);
 
-                Assert.That(Single(sparse, "structure/building").LogicalId,
+                Assert.That(Anchor(sparse).LogicalId,
                     Is.EqualTo("structure/building/hut_01"),
                     $"seed {seed}: a density this low leaves no room for the large building");
             }
@@ -261,16 +490,22 @@ namespace ArenaForge.Tests
             for (ulong seed = 1; seed <= 40; seed++)
             {
                 WorldDoc dense = ArenaLayoutGenerator.Generate(
-                    new ArenaParams { Seed = seed, StructureDensity = 1f }, catalog);
-                string logicalId = Single(dense, "structure/building").LogicalId;
+                    new ArenaParams { Seed = seed, StructureDensity = 2f }, catalog);
+                string logicalId = Anchor(dense).LogicalId;
                 if (!chosen.Contains(logicalId))
                 {
                     chosen.Add(logicalId);
                 }
             }
 
-            Assert.That(chosen.Count, Is.EqualTo(2), "at full density both buildings should be reachable");
+            Assert.That(chosen.Count, Is.EqualTo(2), "at a high density both buildings should be reachable");
         }
+
+        /// <summary>The map's anchor: the structure standing in the middle lane.</summary>
+        static PlacedObject Anchor(WorldDoc doc) =>
+            doc.GeneratedObjects.Single(
+                o => o.Tags.Contains(ArenaLayoutGenerator.StructureTag) &&
+                     o.Metadata[ArenaLayoutGenerator.LaneKey] == "lane_mid");
 
         [Test]
         public void ACatalogMissingAStructureFailsWithAReadableMessage()

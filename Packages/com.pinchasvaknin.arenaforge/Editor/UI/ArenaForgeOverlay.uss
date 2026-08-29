@@ -1,0 +1,74 @@
+/* The scene-view overlay. Narrow on purpose: it holds what you reach for while arranging a map or
+   a building, and the tool window holds everything you read. */
+
+.af-overlay {
+    min-width: 250px;
+    max-width: 300px;
+}
+
+.af-overlay-modes {
+    flex-direction: row;
+    margin-bottom: 4px;
+}
+
+.af-overlay-modes > Button {
+    flex-grow: 1;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+/* The selected mode. Both the border and the background move, because the overlay is drawn over
+   whatever the scene happens to be and a background tint alone reads differently on every one. */
+.af-overlay-mode-on {
+    background-color: rgba(120, 170, 255, 0.30);
+    border-color: rgb(120, 170, 255);
+}
+
+.af-overlay-buttons {
+    flex-direction: row;
+    margin-top: 3px;
+}
+
+.af-overlay-buttons > Button {
+    flex-grow: 1;
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.af-overlay-secondary {
+    flex-grow: 0;
+    width: 76px;
+}
+
+.af-overlay-heading {
+    -unity-font-style: bold;
+    font-size: 11px;
+    margin: 6px 2px 1px 2px;
+}
+
+.af-overlay-line {
+    white-space: normal;
+    font-size: 11px;
+    opacity: 0.75;
+    margin: 3px 2px 0 2px;
+}
+
+/* One floor: its name on the left, its re-roll button hard against the right edge. */
+.af-overlay-floor {
+    flex-direction: row;
+    align-items: center;
+    margin-top: 1px;
+}
+
+.af-overlay-floor > Label {
+    flex-grow: 1;
+    font-size: 11px;
+    margin-left: 2px;
+}
+
+.af-overlay-status {
+    white-space: normal;
+    font-size: 11px;
+    color: rgb(255, 150, 120);
+    margin: 4px 2px 0 2px;
+}

@@ -27,13 +27,21 @@ namespace ArenaForge.Core
 
         /// <summary>
         /// Most the two spawns' surroundings may differ in mean exposure before the map favours a
-        /// side. Observed across seeds 1..1000 of the default map: 0.00 to 0.22, mean 0.06.
+        /// side. Observed across seeds 1..1000 of the default map: 0.00 to 0.26, mean 0.06.
         /// </summary>
-        public float MaxExposureAsymmetry { get; set; } = 0.25f;
+        /// <remarks>
+        /// Re-derived when the composition rule gave the default map a second house. The middle of
+        /// the distribution did not move — mean 0.058 before, 0.057 after, 99th percentile 0.186 —
+        /// but the worst seed of a thousand went from 0.217 to 0.257, because two flank structures
+        /// can both land on the same half of the long axis where one could not. The number is the
+        /// new worst seed plus the same headroom the old one carried; the alternative would be
+        /// constraining where a flank structure may sit, which REPORT.md rules out on purpose.
+        /// </remarks>
+        public float MaxExposureAsymmetry { get; set; } = 0.3f;
 
         /// <summary>
         /// Least fraction of the walkable floor that must be within reach of a piece of cover.
-        /// Observed across seeds 1..1000 of the default map: 0.64 to 0.79, mean 0.73.
+        /// Observed across seeds 1..1000 of the default map: 0.62 to 0.78, mean 0.71.
         /// </summary>
         /// <remarks>
         /// Lower than it looks because the two spawn strips are a quarter of the floor and are
@@ -44,7 +52,7 @@ namespace ArenaForge.Core
 
         /// <summary>
         /// Longest unobstructed sightline the map may contain, as a fraction of the playfield's
-        /// diagonal. Observed across seeds 1..1000 of the default map: 0.81 to 0.91.
+        /// diagonal. Observed across seeds 1..1000 of the default map: 0.81 to 0.89.
         /// </summary>
         /// <remarks>
         /// A fraction rather than a distance so the number means the same thing on a playfield of

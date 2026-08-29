@@ -17,24 +17,50 @@ namespace ArenaForge.Core
     public sealed class WorldDoc
     {
         /// <summary>Schema revision written into world JSON.</summary>
-        public const int CurrentSchemaVersion = 1;
+        public const int CurrentSchemaVersion = 2;
+
+        /// <summary>
+        /// Oldest schema revision this build still reads.
+        /// </summary>
+        /// <remarks>
+        /// Version 1 is version 2 without the <see cref="Kind"/> field, which is why it can be
+        /// read unchanged: a file that does not say what it is, in a build where a map was the
+        /// only thing a document could be, is a map.
+        /// </remarks>
+        public const int MinReadableSchemaVersion = 1;
+
+        /// <summary>Value of the <c>kind</c> field a world document carries.</summary>
+        public const string WorldKind = "world";
 
         /// <summary>Schema revision this document was written with.</summary>
         [JsonProperty("schemaVersion", Order = 0)]
         public int SchemaVersion { get; set; } = CurrentSchemaVersion;
 
         /// <summary>
+        /// What kind of document this is. Always <see cref="WorldKind"/>.
+        /// </summary>
+        /// <remarks>
+        /// There are two kinds of document now, and they have the same shape from
+        /// <c>generatedObjects</c> down. Without this field a building loaded through
+        /// <see cref="ArenaJson.DeserializeWorld"/> would come back as a map with default
+        /// parameters rather than as an error — the quiet failure the schema version check exists
+        /// to prevent, one level up.
+        /// </remarks>
+        [JsonProperty("kind", Order = 1)]
+        public string Kind => WorldKind;
+
+        /// <summary>
         /// Generator settings the generated objects were produced with, seed included.
         /// </summary>
-        [JsonProperty("parameters", Order = 1)]
+        [JsonProperty("parameters", Order = 2)]
         public ArenaParams Parameters { get; set; } = new ArenaParams();
 
         /// <summary>What the generator produced, in generation order.</summary>
-        [JsonProperty("generatedObjects", Order = 2)]
+        [JsonProperty("generatedObjects", Order = 3)]
         public List<PlacedObject> GeneratedObjects { get; } = new List<PlacedObject>();
 
         /// <summary>Manual edits, applied in list order.</summary>
-        [JsonProperty("overrides", Order = 3)]
+        [JsonProperty("overrides", Order = 4)]
         public List<EditOverride> Overrides { get; } = new List<EditOverride>();
 
         /// <summary>
@@ -46,7 +72,7 @@ namespace ArenaForge.Core
         /// is: this is serialised, and a <c>Dictionary</c> makes no promise about the order it
         /// enumerates in.
         /// </remarks>
-        [JsonProperty("metadata", Order = 4)]
+        [JsonProperty("metadata", Order = 5)]
         public IDictionary<string, string> Metadata { get; } =
             new SortedDictionary<string, string>(StringComparer.Ordinal);
 
@@ -63,89 +89,6 @@ namespace ArenaForge.Core
         /// orphan, not an error. The document itself is not mutated.
         /// </remarks>
         /// <exception cref="InvalidOperationException">Two generated objects share a stable id.</exception>
-        public ResolvedWorld Resolve()
-        {
-            // Tombstones rather than list removals: deleting from the middle of a list would
-            // invalidate every index in the lookup below. Nulls are compacted away at the end,
-            // which preserves generation order for everything that survives.
-            var objects = new List<PlacedObject>(GeneratedObjects);
-            var indexById = new Dictionary<string, int>(objects.Count, StringComparer.Ordinal);
-
-            for (int i = 0; i < objects.Count; i++)
-            {
-                PlacedObject generated = objects[i];
-                if (generated == null)
-                {
-                    throw new InvalidOperationException($"Generated object at index {i} is null.");
-                }
-
-                if (indexById.ContainsKey(generated.StableId))
-                {
-                    throw new InvalidOperationException(
-                        $"Two generated objects share the stable id '{generated.StableId}'. " +
-                        "Stable ids must be unique for overrides to target them.");
-                }
-
-                indexById.Add(generated.StableId, i);
-            }
-
-            var orphaned = new List<EditOverride>();
-
-            for (int i = 0; i < Overrides.Count; i++)
-            {
-                EditOverride edit = Overrides[i];
-                if (edit == null)
-                {
-                    throw new InvalidOperationException($"Override at index {i} is null.");
-                }
-
-                if (edit.Op == OverrideOp.Add)
-                {
-                    if (indexById.ContainsKey(edit.TargetId))
-                    {
-                        // The user/ namespace is meant to make this impossible. If it happens
-                        // anyway the edit still cannot be applied, so it surfaces like any other
-                        // unapplicable override rather than overwriting a generated object.
-                        orphaned.Add(edit);
-                        continue;
-                    }
-
-                    objects.Add(edit.ToPlacedObject());
-                    indexById.Add(edit.TargetId, objects.Count - 1);
-                    continue;
-                }
-
-                if (!indexById.TryGetValue(edit.TargetId, out int target))
-                {
-                    orphaned.Add(edit);
-                    continue;
-                }
-
-                switch (edit.Op)
-                {
-                    case OverrideOp.Move:
-                        objects[target] = objects[target].WithPose(edit.Pose.Value);
-                        break;
-                    case OverrideOp.SwapAsset:
-                        objects[target] = objects[target].WithLogicalId(edit.LogicalId);
-                        break;
-                    case OverrideOp.Delete:
-                        objects[target] = null;
-                        indexById.Remove(edit.TargetId);
-                        break;
-                }
-            }
-
-            var resolved = new List<PlacedObject>(objects.Count);
-            for (int i = 0; i < objects.Count; i++)
-            {
-                if (objects[i] != null)
-                {
-                    resolved.Add(objects[i]);
-                }
-            }
-
-            return new ResolvedWorld(resolved, orphaned);
-        }
+        public ResolvedWorld Resolve() => OverrideResolution.Apply(GeneratedObjects, Overrides);
     }
 }

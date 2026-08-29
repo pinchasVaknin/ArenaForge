@@ -1,0 +1,1217 @@
+{
+  "schemaVersion": 2,
+  "kind": "world",
+  "parameters": {
+    "seed": 3154416432191947383,
+    "playfieldSize": {
+      "x": 60.0,
+      "y": 60.0
+    },
+    "laneCount": 3,
+    "gridSize": 1.0,
+    "structureDensity": 1.0,
+    "coverDensity": 1.0,
+    "lowToHighCoverRatio": 2.0,
+    "fineCoverRotation": false,
+    "terrainAmplitude": 0.0,
+    "terrainFeatureSize": 20.0
+  },
+  "generatedObjects": [
+    {
+      "stableId": "map/spawn_a/marker",
+      "logicalId": "spawn/marker_spawn",
+      "pose": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": -26.5
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "spawn"
+      ],
+      "metadata": {
+        "foundation": "-30,-30,30,-23",
+        "foundation_height": "0",
+        "spawn_area": "-30,-30,30,-23",
+        "team": "a"
+      }
+    },
+    {
+      "stableId": "map/spawn_b/marker",
+      "logicalId": "spawn/marker_spawn",
+      "pose": {
+        "position": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 26.5
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "spawn"
+      ],
+      "metadata": {
+        "foundation": "-30,23,30,30",
+        "foundation_height": "0",
+        "spawn_area": "-30,23,30,30",
+        "team": "b"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/structure_00",
+      "logicalId": "structure/building/mybuilding",
+      "pose": {
+        "position": {
+          "x": 1.0,
+          "y": 0.0,
+          "z": -4.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "structure",
+        "structure/building"
+      ],
+      "metadata": {
+        "doorway_00": "-0.25,-8.6,2.25,-7.60000038",
+        "doorway_01": "-0.25,-0.4000001,2.25,0.5999999",
+        "doorway_count": "2",
+        "foundation": "-4.1,-9.1,6.1,1.0999999",
+        "foundation_height": "0",
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_north/structure_00",
+      "logicalId": "structure/house/mybuilding",
+      "pose": {
+        "position": {
+          "x": -20.0,
+          "y": 0.0,
+          "z": 7.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "structure",
+        "structure/house"
+      ],
+      "metadata": {
+        "doorway_00": "-21.25,2.4,-18.75,3.4",
+        "doorway_01": "-21.25,10.6,-18.75,11.6",
+        "doorway_count": "2",
+        "foundation": "-25.1,1.9000001,-14.9,12.1",
+        "foundation_height": "0",
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_00",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -19.0,
+          "y": 0.0,
+          "z": 16.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_01",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": 6.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_02",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": -16.0,
+          "y": 0.0,
+          "z": 17.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_03",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -27.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_04",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -23.0,
+          "y": 0.0,
+          "z": 17.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_05",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": 18.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_06",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -27.0,
+          "y": 0.0,
+          "z": -14.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_07",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -13.0,
+          "y": 0.0,
+          "z": 1.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_08",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -21.0,
+          "y": 0.0,
+          "z": -2.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_09",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -27.0,
+          "y": 0.0,
+          "z": 12.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_10",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -24.0,
+          "y": 0.0,
+          "z": -16.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_11",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": 10.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_north/cover_12",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -12.0,
+          "y": 0.0,
+          "z": -17.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_north"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_00",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -3.0,
+          "y": 0.0,
+          "z": 4.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_01",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 12.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_02",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": 3.0,
+          "y": 0.0,
+          "z": -15.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_03",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -6.0,
+          "y": 0.0,
+          "z": 10.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_04",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": -6.0,
+          "y": 0.0,
+          "z": -17.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_05",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": 6.0,
+          "y": 0.0,
+          "z": -14.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_06",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 4.0,
+          "y": 0.0,
+          "z": 4.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_07",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": -1.0,
+          "y": 0.0,
+          "z": 8.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_08",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 8.0,
+          "y": 0.0,
+          "z": 5.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_09",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 7.0,
+          "y": 0.0,
+          "z": -18.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_10",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 9.0,
+          "y": 0.0,
+          "z": -4.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_mid/cover_11",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 8.0,
+          "y": 0.0,
+          "z": -8.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_mid"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_00",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": 15.0,
+          "y": 0.0,
+          "z": -5.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_01",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 25.0,
+          "y": 0.0,
+          "z": 15.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_02",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 19.0,
+          "y": 0.0,
+          "z": 10.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_03",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 17.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_04",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 27.0,
+          "y": 0.0,
+          "z": 12.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_05",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 25.0,
+          "y": 0.0,
+          "z": -5.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_06",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 28.0,
+          "y": 0.0,
+          "z": 18.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_07",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 27.0,
+          "y": 0.0,
+          "z": -9.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_08",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 15.0,
+          "y": 0.0,
+          "z": 18.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_09",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 22.0,
+          "y": 0.0,
+          "z": -15.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_10",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 27.0,
+          "y": 0.0,
+          "z": 2.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_11",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 26.0,
+          "y": 0.0,
+          "z": -17.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_12",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": 19.0,
+          "y": 0.0,
+          "z": -3.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_13",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 17.0,
+          "y": 0.0,
+          "z": -13.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": -0.707106769,
+          "z": 0.0,
+          "w": 0.707106769
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_14",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 25.0,
+          "y": 0.0,
+          "z": 7.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_15",
+      "logicalId": "cover/low/cover_low_crate_wood_01",
+      "pose": {
+        "position": {
+          "x": 22.0,
+          "y": 0.0,
+          "z": 0.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 1.0,
+          "z": 0.0,
+          "w": 0.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_16",
+      "logicalId": "cover/high/cover_high_barrier_concrete_01",
+      "pose": {
+        "position": {
+          "x": 20.0,
+          "y": 0.0,
+          "z": -10.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/high"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    },
+    {
+      "stableId": "map/lane_south/cover_17",
+      "logicalId": "cover/low/cover_low_sandbags_01",
+      "pose": {
+        "position": {
+          "x": 16.0,
+          "y": 0.0,
+          "z": 13.0
+        },
+        "rotation": {
+          "x": 0.0,
+          "y": 0.0,
+          "z": 0.0,
+          "w": 1.0
+        },
+        "scale": 1.0
+      },
+      "tags": [
+        "cover",
+        "cover/low"
+      ],
+      "metadata": {
+        "lane": "lane_south"
+      }
+    }
+  ],
+  "overrides": [],
+  "metadata": {
+    "cover_accepted": "43",
+    "cover_attempted": "43",
+    "cover_rejected": "0",
+    "cover_target": "43"
+  }
+}

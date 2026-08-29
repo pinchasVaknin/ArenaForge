@@ -41,17 +41,40 @@ namespace ArenaForge.Core
                 throw new ArgumentNullException(nameof(text));
             }
 
-            ulong hash = OffsetBasis;
+            return HashString(Fold(OffsetBasis, seed), text);
+        }
+
+        /// <summary>
+        /// Mixes a number into a numeric seed, the way <see cref="Combine(ulong, string)"/> mixes
+        /// a label in.
+        /// </summary>
+        /// <remarks>
+        /// For the places a label would be a lattice coordinate — the terrain heightfield hashes
+        /// a grid corner per sample, and building the string for it would allocate a few hundred
+        /// thousand times over one playfield.
+        /// </remarks>
+        public static ulong Combine(ulong seed, long value)
+        {
+            unchecked
+            {
+                ulong hash = OffsetBasis;
+                hash = Fold(hash, seed);
+                return Fold(hash, (ulong)value);
+            }
+        }
+
+        static ulong Fold(ulong hash, ulong value)
+        {
             unchecked
             {
                 for (int i = 0; i < 8; i++)
                 {
-                    hash ^= (byte)(seed >> (i * 8));
+                    hash ^= (byte)(value >> (i * 8));
                     hash *= Prime;
                 }
             }
 
-            return HashString(hash, text);
+            return hash;
         }
 
         // Folds UTF-16 code units low byte first. Hashing code units rather than a UTF-8

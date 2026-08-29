@@ -41,13 +41,62 @@ namespace ArenaForge.Core
         }
 
         /// <summary>Deserialises a world document.</summary>
+        /// <remarks>
+        /// Schema version 1 — the revision before building documents existed, and so before the
+        /// <c>kind</c> field — is still read. A version 1 file carries no kind, and in a build
+        /// where a map was the only document there was, that is unambiguous.
+        /// </remarks>
         /// <exception cref="ArgumentNullException"><paramref name="json"/> is null.</exception>
         /// <exception cref="UnsupportedSchemaVersionException">The document declares an unreadable schema version.</exception>
+        /// <exception cref="InvalidOperationException">The document is of another kind.</exception>
         public static WorldDoc DeserializeWorld(string json)
         {
             JObject root = Parse(json);
-            RequireSchemaVersion(root, "world document", WorldDoc.CurrentSchemaVersion);
-            return root.ToObject<WorldDoc>(JsonSerializer.Create(CreateSettings()));
+
+            // The kind first, then the version. A file of the wrong kind is refused for being the
+            // wrong kind, rather than for whatever its own version line happens to say — "this is
+            // a building, not a world document" is the useful message, and a complaint about
+            // version numbers between two documents that were never the same format is not.
+            RequireKind(root, WorldDoc.WorldKind, "world document");
+            RequireSchemaVersion(
+                root, "world document", WorldDoc.MinReadableSchemaVersion, WorldDoc.CurrentSchemaVersion);
+
+            var doc = root.ToObject<WorldDoc>(JsonSerializer.Create(CreateSettings()));
+
+            // Upgraded on the way in rather than left declaring the revision it was written at.
+            // The document in memory is this build's shape whatever it was read from, and a
+            // version 1 file re-saved with a version 2 field in it would be neither.
+            doc.SchemaVersion = WorldDoc.CurrentSchemaVersion;
+            return doc;
+        }
+
+        /// <summary>Serialises a building document.</summary>
+        /// <exception cref="ArgumentNullException"><paramref name="doc"/> is null.</exception>
+        public static string SerializeBuilding(BuildingDoc doc)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            return Write(doc);
+        }
+
+        /// <summary>Deserialises a building document.</summary>
+        /// <exception cref="ArgumentNullException"><paramref name="json"/> is null.</exception>
+        /// <exception cref="UnsupportedSchemaVersionException">The document declares an unreadable schema version.</exception>
+        /// <exception cref="InvalidOperationException">The document is of another kind.</exception>
+        public static BuildingDoc DeserializeBuilding(string json)
+        {
+            JObject root = Parse(json);
+
+            // No back-compatible default here, unlike a world: every building document ever
+            // written carries a kind, so one that does not is a map being read as a building.
+            RequireKind(root, BuildingDoc.BuildingKind, "building document", allowMissing: false);
+            RequireSchemaVersion(
+                root, "building document", BuildingDoc.CurrentSchemaVersion, BuildingDoc.CurrentSchemaVersion);
+
+            return root.ToObject<BuildingDoc>(JsonSerializer.Create(CreateSettings()));
         }
 
         /// <summary>Serialises a catalog.</summary>
@@ -68,7 +117,8 @@ namespace ArenaForge.Core
         public static Catalog DeserializeCatalog(string json)
         {
             JObject root = Parse(json);
-            RequireSchemaVersion(root, "catalog", Catalog.CurrentSchemaVersion);
+            RequireSchemaVersion(
+                root, "catalog", Catalog.CurrentSchemaVersion, Catalog.CurrentSchemaVersion);
             return root.ToObject<Catalog>(JsonSerializer.Create(CreateSettings()));
         }
 
@@ -120,7 +170,7 @@ namespace ArenaForge.Core
 
         // The version is read before the document is materialised so a file from a future build
         // fails with a message about versions rather than an obscure binding error.
-        static void RequireSchemaVersion(JObject root, string documentKind, int supported)
+        static void RequireSchemaVersion(JObject root, string documentKind, int minSupported, int supported)
         {
             JToken token = root["schemaVersion"];
             if (token == null || token.Type != JTokenType.Integer)
@@ -129,9 +179,40 @@ namespace ArenaForge.Core
             }
 
             int found = token.Value<int>();
-            if (found != supported)
+            if (found < minSupported || found > supported)
             {
                 throw new UnsupportedSchemaVersionException(documentKind, found, supported);
+            }
+        }
+
+        /// <summary>
+        /// Rejects a document of the wrong kind before it is materialised into the wrong type.
+        /// </summary>
+        /// <remarks>
+        /// Worth its own check because the two kinds have the same shape from
+        /// <c>generatedObjects</c> down: a building read as a world does not fail, it comes back
+        /// as an empty map with default parameters. That is the quiet failure this whole preamble
+        /// exists to prevent.
+        /// </remarks>
+        static void RequireKind(JObject root, string expected, string documentKind, bool allowMissing = true)
+        {
+            JToken token = root["kind"];
+            if (token == null || token.Type == JTokenType.Null)
+            {
+                if (allowMissing)
+                {
+                    return;
+                }
+
+                throw new InvalidOperationException(
+                    $"This file does not say what it is, so it is not a {documentKind}.");
+            }
+
+            string found = token.Value<string>();
+            if (!string.Equals(found, expected, StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    $"This is a '{found}' document, not a {documentKind}.");
             }
         }
     }

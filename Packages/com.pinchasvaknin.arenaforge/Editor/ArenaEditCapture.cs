@@ -53,6 +53,7 @@ namespace ArenaForge.Editor
         readonly List<Watched> _watched = new List<Watched>();
         readonly ArenaMap _map;
 
+        WorldDoc _builtFrom;
         int _cleanUndoGroup;
 
         /// <summary>Starts watching a map. Call <see cref="Rebuild"/> once it has been realised.</summary>
@@ -70,6 +71,7 @@ namespace ArenaForge.Editor
         {
             _watched.Clear();
             _cleanUndoGroup = Undo.GetCurrentGroup();
+            _builtFrom = null;
 
             if (_map == null)
             {
@@ -77,6 +79,7 @@ namespace ArenaForge.Editor
             }
 
             WorldDoc doc = _map.Document;
+            _builtFrom = doc;
             if (doc == null)
             {
                 return;
@@ -123,6 +126,17 @@ namespace ArenaForge.Editor
             }
 
             WorldDoc doc = _map.Document;
+
+            if (!ReferenceEquals(doc, _builtFrom))
+            {
+                // The document was replaced by something other than a scene edit — the scene-view
+                // overlay generating, or a load. The instances this was watching went with it, and
+                // reading their absence as deletions would turn someone else's regeneration into a
+                // list of overrides the user never made.
+                Rebuild();
+                return true;
+            }
+
             bool registered = false;
             bool settled = true;
 
@@ -325,9 +339,13 @@ namespace ArenaForge.Editor
             }
         }
 
+        // The vertical scale is compared on the same slack as the uniform one rather than exactly,
+        // because a stretched wall reads back out of a Unity transform as a division of what went
+        // into it — and an instance nobody touched must not come back as an edit.
         static bool Near(CorePose a, CorePose b) =>
             Vec3.DistanceSquared(a.Position, b.Position) <= PositionEpsilon * PositionEpsilon &&
             Mathf.Abs(a.Scale - b.Scale) <= ScaleEpsilon &&
+            Mathf.Abs(a.VerticalScale - b.VerticalScale) <= ScaleEpsilon &&
             1f - Mathf.Abs(Dot(a.Rotation, b.Rotation)) <= RotationEpsilon;
 
         static float Dot(Quat a, Quat b) => a.X * b.X + a.Y * b.Y + a.Z * b.Z + a.W * b.W;

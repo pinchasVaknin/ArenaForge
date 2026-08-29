@@ -42,6 +42,13 @@ namespace ArenaForge.Tests
         }
 
         /// <summary>True if the object is a piece of cover.</summary>
+        /// <remarks>
+        /// What <see cref="CoverPlacer"/> scattered, which is a narrower question than the one
+        /// <c>MapAnalyzer.IsCover</c> asks: the analyser also counts street furniture towards the
+        /// floor being within reach of cover, because a bench beside a road is something a player
+        /// gets behind. The suites here are about the cover <em>stage</em> — its target, its
+        /// spacing, its rules — so they want the pieces that stage put down and nothing else.
+        /// </remarks>
         public static bool IsCover(PlacedObject placed) => HasTag(placed, CoverPlacer.CoverTag);
 
         /// <summary>True if the object is a structure.</summary>
@@ -69,6 +76,27 @@ namespace ArenaForge.Tests
             }
 
             return occupants;
+        }
+
+        /// <summary>The structures on a map, in generation order.</summary>
+        /// <remarks>
+        /// How many there are is decided by the ground rather than by a rule anything can be held
+        /// to in advance — see <see cref="ArenaLayoutGenerator.StructureCells"/> — so a suite that
+        /// wants "one pad per structure" or "the structures and nothing else" counts them here
+        /// instead of adding up a composition.
+        /// </remarks>
+        public static List<PlacedObject> Structures(WorldDoc doc)
+        {
+            var structures = new List<PlacedObject>();
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                if (IsStructure(doc.GeneratedObjects[i]))
+                {
+                    structures.Add(doc.GeneratedObjects[i]);
+                }
+            }
+
+            return structures;
         }
 
         /// <summary>Cover standing on the ground, in generation order.</summary>

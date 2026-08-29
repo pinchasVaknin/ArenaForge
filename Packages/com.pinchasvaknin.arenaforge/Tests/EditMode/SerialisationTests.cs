@@ -58,6 +58,51 @@ namespace ArenaForge.Tests
             Assert.That(second, Is.EqualTo(first));
         }
 
+        /// <remarks>
+        /// Non-default values throughout, and every one of them exactly representable, so a
+        /// serialiser that dropped the four would fail here rather than pass on the defaults a
+        /// fresh <see cref="ArenaParams"/> already carries.
+        /// </remarks>
+        [Test]
+        public void TheRoadParametersRoundTrip()
+        {
+            var doc = new WorldDoc
+            {
+                Parameters = new ArenaParams
+                {
+                    Seed = 20260825UL,
+                    RoadDensity = 1.5f,
+                    ArteryWidth = 6.25f,
+                    PathWidth = 2.75f,
+                    MaxRoadGradient = 0.125f,
+                },
+            };
+
+            ArenaParams restored = ArenaJson.DeserializeWorld(ArenaJson.SerializeWorld(doc)).Parameters;
+
+            Assert.That(restored.RoadDensity, Is.EqualTo(1.5f), "roadDensity");
+            Assert.That(restored.ArteryWidth, Is.EqualTo(6.25f), "arteryWidth");
+            Assert.That(restored.PathWidth, Is.EqualTo(2.75f), "pathWidth");
+            Assert.That(restored.MaxRoadGradient, Is.EqualTo(0.125f), "maxRoadGradient");
+        }
+
+        /// <remarks>
+        /// The whole of why the four cost no schema version. A document written before they
+        /// existed carries none of them and comes back meaning exactly what it meant — a density
+        /// of zero, which is no roads — so there is nothing an old file could be misread as.
+        /// </remarks>
+        [Test]
+        public void AWorldWrittenBeforeTheRoadParametersLoadsAtTheirDefaults()
+        {
+            ArenaParams restored =
+                ArenaJson.DeserializeWorld(TestWorlds.ReadFixture("world-v1.json")).Parameters;
+
+            Assert.That(restored.RoadDensity, Is.EqualTo(0f), "roadDensity");
+            Assert.That(restored.ArteryWidth, Is.EqualTo(4f), "arteryWidth");
+            Assert.That(restored.PathWidth, Is.EqualTo(2f), "pathWidth");
+            Assert.That(restored.MaxRoadGradient, Is.EqualTo(0.25f), "maxRoadGradient");
+        }
+
         [Test]
         public void OutputIsIndentedWithLineFeedsOnly()
         {
@@ -164,13 +209,99 @@ namespace ArenaForge.Tests
         public void AnUnknownSchemaVersionIsRejected()
         {
             string json = ArenaJson.SerializeWorld(TestWorlds.SampleWorld())
-                .Replace("\"schemaVersion\": 1", "\"schemaVersion\": 99");
+                .Replace("\"schemaVersion\": 2", "\"schemaVersion\": 99");
 
             var error = Assert.Throws<UnsupportedSchemaVersionException>(() => ArenaJson.DeserializeWorld(json));
 
             Assert.That(error.FoundVersion, Is.EqualTo(99));
             Assert.That(error.SupportedVersion, Is.EqualTo(WorldDoc.CurrentSchemaVersion));
             Assert.That(error.Message, Does.Contain("99"));
+        }
+
+        // --- two kinds of document ------------------------------------------------------------
+
+        [Test]
+        public void AWorldWrittenBeforeBuildingsExistedStillLoads()
+        {
+            // The whole of the back-compatibility claim, against a file committed at the previous
+            // revision rather than against one this build wrote and then edited.
+            WorldDoc restored = ArenaJson.DeserializeWorld(TestWorlds.ReadFixture("world-v1.json"));
+
+            WorldAssert.AreDeepEqual(TestWorlds.SampleWorld(), restored);
+        }
+
+        /// <remarks>
+        /// Reading upgrades, so a file loaded at the old revision and saved again is a whole
+        /// document at the new one — not a version 1 header over a body carrying a version 2
+        /// field, which is what leaving the number alone would produce.
+        /// </remarks>
+        [Test]
+        public void AWorldLoadedFromTheOldRevisionIsSavedAtTheCurrentOne()
+        {
+            WorldDoc restored = ArenaJson.DeserializeWorld(TestWorlds.ReadFixture("world-v1.json"));
+
+            string resaved = ArenaJson.SerializeWorld(restored);
+
+            Assert.That(restored.SchemaVersion, Is.EqualTo(WorldDoc.CurrentSchemaVersion));
+            Assert.That(
+                Normalise(resaved), Is.EqualTo(Normalise(TestWorlds.ReadFixture("world.json"))));
+        }
+
+        [Test]
+        public void AWorldIsWrittenAtTheCurrentVersionSayingWhatItIs()
+        {
+            string json = ArenaJson.SerializeWorld(TestWorlds.SampleWorld());
+
+            Assert.That(json, Does.Contain("\"schemaVersion\": 2"));
+            Assert.That(json, Does.Contain("\"kind\": \"world\""));
+        }
+
+        [Test]
+        public void ABuildingRoundTrips()
+        {
+            BuildingDoc original = TestWorlds.SampleBuilding();
+
+            BuildingDoc restored = ArenaJson.DeserializeBuilding(ArenaJson.SerializeBuilding(original));
+
+            Assert.That(
+                ArenaJson.SerializeBuilding(restored), Is.EqualTo(ArenaJson.SerializeBuilding(original)));
+            Assert.That(restored.Floors.Count, Is.EqualTo(original.Floors.Count));
+            for (int i = 0; i < original.Floors.Count; i++)
+            {
+                Assert.That(restored.Floors[i].Seed, Is.EqualTo(original.Floors[i].Seed), $"floors[{i}]");
+            }
+        }
+
+        /// <remarks>
+        /// The failure the kind field exists to prevent. The two documents have the same shape
+        /// from <c>generatedObjects</c> down, so without it this would not throw — it would come
+        /// back as a map with default parameters and the building's objects in it.
+        /// </remarks>
+        [Test]
+        public void ABuildingIsNotReadAsAMap()
+        {
+            string json = ArenaJson.SerializeBuilding(TestWorlds.SampleBuilding());
+
+            var error = Assert.Throws<InvalidOperationException>(() => ArenaJson.DeserializeWorld(json));
+
+            Assert.That(error.Message, Does.Contain("building"));
+        }
+
+        [Test]
+        public void AMapIsNotReadAsABuilding()
+        {
+            string json = ArenaJson.SerializeWorld(TestWorlds.SampleWorld());
+
+            Assert.Throws<InvalidOperationException>(() => ArenaJson.DeserializeBuilding(json));
+        }
+
+        [Test]
+        public void AWorldFromBeforeTheKindFieldIsNotMistakenForABuilding()
+        {
+            // A v1 file carries no kind at all. It is read as a map, which is what it is, and
+            // refused as a building rather than being let through on the missing field.
+            Assert.Throws<InvalidOperationException>(
+                () => ArenaJson.DeserializeBuilding(TestWorlds.ReadFixture("world-v1.json")));
         }
 
         [Test]

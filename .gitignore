@@ -68,3 +68,8 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Third-party art pack. Not committed: the tool is designed to be repointed at any pack
+# through the catalog, and the README says no third-party assets ship with it.
+/[Aa]ssets/[Mm]odels/
+/[Aa]ssets/[Mm]odels.meta

@@ -77,6 +77,72 @@ namespace ArenaForge.Core
         [JsonProperty("fineCoverRotation", Order = 7)]
         public bool FineCoverRotation { get; set; }
 
+        /// <summary>
+        /// Peak-to-trough height variation of the ground, in metres. Zero is a flat map.
+        /// </summary>
+        /// <remarks>
+        /// Zero by default, deliberately. The heightfield decides where objects stand, not what
+        /// the ground looks like — the tool composes prefabs and does not author a mesh — so a map
+        /// with hills in it and nothing rendering them would put its crates in mid-air. Give the
+        /// map a Unity terrain to write the field into and then turn this up; see
+        /// <see cref="TerrainField"/>.
+        /// </remarks>
+        [JsonProperty("terrainAmplitude", Order = 8)]
+        public float TerrainAmplitude { get; set; }
+
+        /// <summary>How wide the largest ground features are, in metres.</summary>
+        /// <remarks>
+        /// Roughly the width of one rise or hollow at the coarsest octave. The default is a third
+        /// of the default playfield, so a map has a handful of features rather than one dome or a
+        /// field of bumps.
+        /// </remarks>
+        [JsonProperty("terrainFeatureSize", Order = 9)]
+        public float TerrainFeatureSize { get; set; } = 20f;
+
+        /// <summary>
+        /// How many redundant connections the road network lays over the one route it needs, as a
+        /// multiple of the baseline. Zero disables the road stage entirely.
+        /// </summary>
+        /// <remarks>
+        /// Zero by default, for the reason <see cref="TerrainAmplitude"/> is: turning it up
+        /// changes the output of every map that already exists, and nothing renders a road yet.
+        /// Until there is something to draw one with, every map is exactly the roadless map this
+        /// tool generated before these parameters existed — and the three below describe roads
+        /// that are not laid until this one is turned up.
+        /// </remarks>
+        [JsonProperty("roadDensity", Order = 10)]
+        public float RoadDensity { get; set; }
+
+        /// <summary>Carriageway width of a trunk road, in metres.</summary>
+        /// <remarks>
+        /// Metres rather than a count of lanes, because a road here is a strip of ground with a
+        /// width and not a thing with markings on it. The default of 4 is two vehicles abreast,
+        /// which is what makes an artery read as the route through a map rather than as a wide
+        /// path.
+        /// </remarks>
+        [JsonProperty("arteryWidth", Order = 11)]
+        public float ArteryWidth { get; set; } = 4f;
+
+        /// <summary>Carriageway width of a branch road, in metres.</summary>
+        /// <remarks>
+        /// Half the artery by default. The gap between the two is what tells a player which way is
+        /// the way through, so the pair is worth setting together: a path as wide as its artery is
+        /// a network with no hierarchy in it.
+        /// </remarks>
+        [JsonProperty("pathWidth", Order = 12)]
+        public float PathWidth { get; set; } = 2f;
+
+        /// <summary>Steepest slope a road may be graded to, as rise over run.</summary>
+        /// <remarks>
+        /// Rise over run rather than degrees: a ratio is two heights and a distance divided, and
+        /// an angle is a call into trigonometry, which is not bit-identical across runtimes — the
+        /// same argument <see cref="YawStep"/> makes. The default of 0.25 is a one-in-four climb,
+        /// steep for a road and gentle beside the slopes <see cref="TerrainAmplitude"/> can
+        /// raise, which is the point of having the limit at all.
+        /// </remarks>
+        [JsonProperty("maxRoadGradient", Order = 13)]
+        public float MaxRoadGradient { get; set; } = 0.25f;
+
         /// <summary>Creates an independent copy.</summary>
         public ArenaParams Clone() => new ArenaParams
         {
@@ -88,6 +154,12 @@ namespace ArenaForge.Core
             CoverDensity = CoverDensity,
             LowToHighCoverRatio = LowToHighCoverRatio,
             FineCoverRotation = FineCoverRotation,
+            TerrainAmplitude = TerrainAmplitude,
+            TerrainFeatureSize = TerrainFeatureSize,
+            RoadDensity = RoadDensity,
+            ArteryWidth = ArteryWidth,
+            PathWidth = PathWidth,
+            MaxRoadGradient = MaxRoadGradient,
         };
     }
 }
