@@ -604,6 +604,26 @@ leaves the same bare ground in the middle of the run, and once the cursor is wit
 end it never gets going again, so one refusal can cost everything after it. Both are the same fault:
 ground nothing stood on because of where the cursor happened to land.
 
+**How deep that doubling goes is a fact about the catalog, not about the run.** The closing pass
+takes the longest piece that still fits what is left of the stretch — `WallRun.LongestThatFits` —
+rather than the shortest piece in the palette, so a folder holding a thirty-metre panel and a few
+shorter ones closes a nine-metre tail with a five, a two and a one, and only the last of those laps
+anything. A folder holding one length is unaffected, because the longest that fits is then the only
+piece there is, and every map generated before the rule existed comes back the same.
+
+That is where length variants earn their place, and it is worth being exact about what they buy: not
+coverage, which was already there, but the stacking. With the art-pack-scale catalog over 160 maps,
+panel standing on panel falls from 4,192 m to 193 m and the deepest single lap from 15.3 m to 0.30 m
+— one panel thickness, which is the corner the pinwheel hands over and not a remainder at all.
+Coverage is identical to four decimal places, because a run that closes by laying half a panel on
+top of its neighbour was closing.
+
+The choice takes no draw and breaks ties by catalog order, on the terms `Shortest` already set: it
+is reached after the walk's draws are spent, and a tie-break that read the stream would make a run
+depend on how many picks had missed. It is also not the mixing `PerimeterFence` rejected — that
+spliced a garden panel into the wall round the world, where this chooses inside the run's own
+palette, so a longer piece is the same wall in a longer piece.
+
 `WallRun.CloseGaps` therefore goes back over every stretch the walk left bare — the remainder at the
 end and the holes in the middle alike — and lays pieces into it *backwards* from its far end, so the
 last one lands exactly on the line and the doubling up happens over ground the run already covers. A

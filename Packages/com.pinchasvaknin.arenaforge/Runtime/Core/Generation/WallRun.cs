@@ -328,10 +328,9 @@ namespace ArenaForge.Core
             int before,
             List<Span> laid)
         {
-            CatalogEntry entry = Shortest(entries);
-            int steps = face.Steps(entry);
-            Rect2 local = face.Local(entry);
-            float length = face.AlongSize(local);
+            // The piece a stretch shorter than any of the art falls back to, read once because it
+            // is a fact about the palette rather than about a stretch.
+            CatalogEntry shortest = Shortest(entries);
 
             int closed = 0;
             float covered = face.Min;
@@ -343,7 +342,7 @@ namespace ArenaForge.Core
                 // run. That last stretch is the remainder every tiled run ends with.
                 float upTo = i < laid.Count ? laid[i].From : face.Max;
                 closed += FillStretch(
-                    face, entry, steps, local, length, covered, upTo, gates, constraints,
+                    face, entries, shortest, covered, upTo, gates, constraints,
                     stats, seat, index + closed, accept, before);
 
                 if (i < laid.Count)
@@ -359,18 +358,24 @@ namespace ArenaForge.Core
         /// Lays pieces into one bare stretch of a run, and returns how many stood up.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Two passes over the same ground, and each stops at the first refusal rather than
         /// stepping over it: a refusal means something is standing there, and the ground beyond it
         /// is what the other pass is for. The step is a whole piece each time, so each pass runs at
         /// most as many times as the stretch holds pieces and the walk terminates on the geometry
         /// rather than on a counter.
+        /// </para>
+        /// <para>
+        /// <strong>The piece is chosen per step rather than once for the pass</strong>, because
+        /// what is left of a stretch shrinks as it is filled — see
+        /// <see cref="LongestThatFits"/>. A palette holding one length behaves exactly as it did
+        /// before that choice existed: the longest that fits is the only one there is.
+        /// </para>
         /// </remarks>
         static int FillStretch(
             Face face,
-            CatalogEntry entry,
-            int steps,
-            Rect2 local,
-            float length,
+            IReadOnlyList<CatalogEntry> entries,
+            CatalogEntry shortest,
             float from,
             float to,
             IReadOnlyList<Rect2> gates,
@@ -386,11 +391,20 @@ namespace ArenaForge.Core
             // Backwards, so the piece that closes the far end of the stretch lands exactly on it
             // and the doubling up happens at the near end, over ground the run already covers.
             float high = to;
-            while (high > from + EndTolerance &&
-                   TrySeat(
-                       face, entry, steps, local, MathF.Max(face.Min, high - length), gates,
-                       constraints, stats, seat, index + closed, accept, before))
+            while (high > from + EndTolerance)
             {
+                CatalogEntry entry = LongestThatFits(face, entries, high - from, shortest);
+                int steps = face.Steps(entry);
+                Rect2 local = face.Local(entry);
+                float length = face.AlongSize(local);
+
+                if (!TrySeat(
+                        face, entry, steps, local, MathF.Max(face.Min, high - length), gates,
+                        constraints, stats, seat, index + closed, accept, before))
+                {
+                    break;
+                }
+
                 closed++;
                 high -= length;
             }
@@ -398,11 +412,20 @@ namespace ArenaForge.Core
             // Forwards over whatever is left of the stretch, which is only ever reached when the
             // backward pass ran into something.
             float low = from;
-            while (high > low + EndTolerance &&
-                   TrySeat(
-                       face, entry, steps, local, MathF.Min(low, face.Max - length), gates,
-                       constraints, stats, seat, index + closed, accept, before))
+            while (high > low + EndTolerance)
             {
+                CatalogEntry entry = LongestThatFits(face, entries, high - low, shortest);
+                int steps = face.Steps(entry);
+                Rect2 local = face.Local(entry);
+                float length = face.AlongSize(local);
+
+                if (!TrySeat(
+                        face, entry, steps, local, MathF.Min(low, face.Max - length), gates,
+                        constraints, stats, seat, index + closed, accept, before))
+                {
+                    break;
+                }
+
                 closed++;
                 low += length;
             }
@@ -619,6 +642,55 @@ namespace ArenaForge.Core
             }
 
             return shortest;
+        }
+
+        /// <summary>
+        /// The entry covering the most run that still fits in <paramref name="stretch"/>, or
+        /// <paramref name="fallback"/> when none of them does.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// What length variants in a catalog are for. A folder holding a one-metre, a two-metre and
+        /// a five-metre panel closes a five-metre stretch with one piece where a pass that knew
+        /// only the shortest laid five of them, and the remainder no piece divides is then the only
+        /// place anything is still doubled over its neighbour.
+        /// </para>
+        /// <para>
+        /// <strong>This is not the mixing <see cref="PerimeterFence"/> rejected.</strong> That
+        /// spliced a garden panel into the wall round the world — one folder's art closing another
+        /// folder's run, which reads as a gap somebody patched. This chooses inside the run's own
+        /// palette, so every piece is the art the stage was pointed at and a longer one is the same
+        /// wall in a longer piece.
+        /// </para>
+        /// <para>
+        /// Ties break by catalog order and no draw is taken, on the same terms as
+        /// <see cref="Shortest"/>: this is reached after the draws are spent, and a tie-break that
+        /// consulted the stream would make the run depend on how many of them missed.
+        /// </para>
+        /// <para>
+        /// Measured through the face rather than off the footprint, so the length compared is the
+        /// one the caller then steps by. <see cref="EndTolerance"/> of slack, so a piece exactly as
+        /// long as the stretch it is being fitted to counts as fitting.
+        /// </para>
+        /// </remarks>
+        static CatalogEntry LongestThatFits(
+            Face face, IReadOnlyList<CatalogEntry> entries, float stretch, CatalogEntry fallback)
+        {
+            CatalogEntry longest = null;
+            float length = 0f;
+
+            for (int i = 0; i < entries.Count; i++)
+            {
+                float candidate = face.AlongSize(face.Local(entries[i]));
+
+                if (candidate <= stretch + EndTolerance && candidate > length)
+                {
+                    longest = entries[i];
+                    length = candidate;
+                }
+            }
+
+            return longest ?? fallback;
         }
 
         /// <summary>True if the footprint stands in any of the gaps.</summary>

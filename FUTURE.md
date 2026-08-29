@@ -256,17 +256,25 @@ the scene and touched only what changed would make regeneration feel instant on 
 **Play-mode edits are not captured.** `ArenaEditCapture` is editor-only. Moving a prop in play mode
 changes a GameObject and nothing else, as it does in any Unity workflow.
 
-**Closing a run costs a doubled panel, and two panels in one place share their faces.** A run is
-tiled from indivisible pieces and nothing here stretches art, so the only way to reach the end of a
-line is to seat one last panel backwards from it, over the panel before — see `WallRun.TryClose`.
-The overlap is as small as the shortest panel on offer and no smaller, which for a catalog of one
-2.5 m panel is up to 2.5 m of two fence panels standing in the same place with their long faces
-coplanar. That is a z-fight, and the tool cares about coplanar faces everywhere else. Two things
-would fix it and neither was in scope here: an along-run scale on `Pose`, which is a schema change
-and a break with "art is placed, never rescaled"; or a catalog that offers a short closing piece,
-which is what mixing the shorter wood into the stone boundary already half does. Until then the
-cheapest mitigation is art: a workspace with a 0.5 m panel in its fence folder closes every run with
-one.
+**Closing a run still costs a doubled panel, but only as deep as the shortest piece in the folder.**
+A run is tiled from indivisible pieces and nothing here stretches art, so the only way to reach the
+end of a line is to seat one last panel backwards from it, over the panel before — see
+`WallRun.CloseGaps`. What changed is which panel: the pass now takes the longest piece that fits
+what is left of the stretch rather than the shortest in the palette, so the overlap is bounded by
+the shortest piece on the *shelf* and a folder that carries one closes almost exactly. A folder of
+one 2.5 m panel still laps by up to 2.5 m of coplanar faces, and that is a z-fight the tool cares
+about everywhere else. The remaining fix is the art: file a short panel beside the long one. The
+alternative — an along-run scale on `Pose` — is a schema change and a break with "art is placed,
+never rescaled", and is rejected below.
+
+**A catalog of many lengths builds a run out of many more pieces than it needs to.** The closing
+pass chooses by length; the walk that lays the body of the run still picks at weighted random, so a
+fence folder holding five lengths tiles a sixty-metre edge with about forty-five panels where a
+folder holding one tiles it with eight. Weighting the long panel up does not recover it: a slot that
+draws a piece too long for the ground left retries, gives up, and hands that ground to the closing
+pass, which fills it greedily. The fix is to make the walk length-aware the way the closing pass now
+is, and it was left out here because it moves the output of every map that already exists, where the
+closing rule moves only maps whose folders hold more than one length.
 
 **Nothing ships any interior cover, and a building cannot be generated without some.**
 `BuildingGenerator.FloorContents` now queries `propbuilding/decor/interiorcovers` and nothing else —
@@ -467,6 +475,12 @@ The one case it would genuinely buy something is the case that is still open: a 
 the shortest panel, with something standing at both ends of it, which no seating can fill. That is
 rare enough now — structures are held clear of the boundary strip and the dressing places around it
 — that it did not justify the change.
+
+**Length variants are the answer this entry was reaching for.** A folder holding the same wall at
+several lengths, and a closing pass that takes the longest that fits, gets what stretching wanted —
+a tail closed to within a short piece — without a per-axis scale, without a schema change, and
+without squashing anything. The 43% squash above is the measure of how far the wrong answer had to
+go; the right one is a second row in the catalog.
 
 **A second engine adapter.** The Core/Unity boundary exists so generation is testable without an
 engine, and portability is a consequence rather than the goal — ARCHITECTURE.md section 1 is

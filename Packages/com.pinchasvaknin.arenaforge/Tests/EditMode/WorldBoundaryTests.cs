@@ -31,7 +31,10 @@ namespace ArenaForge.Tests
     /// The <em>ends</em> of the runs are closed outright. A run tiled from indivisible pieces stops
     /// short of the line by a remainder, so <see cref="WallRun"/> seats one last piece backwards
     /// from the end — overlapping the piece before it, which is the one overlap
-    /// <see cref="NothingOnTheMapOverlapsTheBoundary"/> allows.
+    /// <see cref="NothingOnTheMapOverlapsTheBoundary"/> allows. How deep that overlap goes is a
+    /// fact about the palette rather than about the run: a folder holding one length has to lap by
+    /// whatever the remainder was short of it, and a folder holding a family of lengths laps by at
+    /// most its shortest member. That is the pair of properties below it.
     /// </para>
     /// </remarks>
     public sealed class WorldBoundaryTests
@@ -265,6 +268,109 @@ namespace ArenaForge.Tests
         /// is about exactly one of them reaching it. A gap at the corner of a map is the gap a player
         /// finds, because a corner is where somebody pressed into the edge of the level ends up.
         /// </remarks>
+        /// <remarks>
+        /// <para>
+        /// The property length variants exist for. Both catalogs hold the same thirty-metre stone
+        /// panel and the same everything else; one of them also files shorter panels in the same
+        /// folder. A run that can only reach for thirty metres closes a nine-metre tail by seating
+        /// a thirty-metre panel back over its neighbour, and a run that can choose closes it with a
+        /// five and a two and a one.
+        /// </para>
+        /// <para>
+        /// Stated as never-worse per seed and better in total, rather than as a figure per seed: a
+        /// tail that happens to divide by thirty leaves nothing to improve, and a property that
+        /// demanded an improvement on every seed would be asserting that no map is ever already
+        /// tidy.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void LengthVariantsCloseTheBoundaryWithLessDoublingAndNeverLessFence()
+        {
+            Catalog oneLength = TestWorlds.ArtPackScaleBoundaryCatalog();
+            Catalog variants = TestWorlds.VariantBoundaryCatalog();
+
+            var sizes = new[]
+            {
+                new Vec2(60f, 60f), new Vec2(75f, 45f), new Vec2(120f, 90f), new Vec2(200f, 200f),
+            };
+
+            float doubledOneLength = 0f;
+            float doubledVariants = 0f;
+
+            foreach (Vec2 size in sizes)
+            {
+                for (ulong seed = 1; seed <= 12; seed++)
+                {
+                    var parameters = new ArenaParams { Seed = seed, PlayfieldSize = size };
+                    ArenaLayout layout = ArenaLayout.Build(parameters);
+
+                    var plain = new BoundaryRun(
+                        ArenaLayoutGenerator.Generate(parameters, oneLength), oneLength, layout);
+                    var mixed = new BoundaryRun(
+                        ArenaLayoutGenerator.Generate(parameters, variants), variants, layout);
+
+                    string where = $"{size.X} x {size.Y}, seed {seed}";
+
+                    Assert.That(mixed.Coverage,
+                        Is.GreaterThanOrEqualTo(plain.Coverage - Tolerance),
+                        $"{where}: variants covered less of the perimeter " +
+                        $"({mixed.Coverage:0.####} against {plain.Coverage:0.####})");
+
+                    Assert.That(mixed.Doubled,
+                        Is.LessThanOrEqualTo(plain.Doubled + Tolerance),
+                        $"{where}: variants doubled more panel " +
+                        $"({mixed.Doubled:0.###} m against {plain.Doubled:0.###} m)");
+
+                    doubledOneLength += plain.Doubled;
+                    doubledVariants += mixed.Doubled;
+                }
+            }
+
+            Assert.That(doubledVariants, Is.LessThan(doubledOneLength),
+                $"variants saved nothing over the sweep: {doubledVariants:0.#} m doubled " +
+                $"against {doubledOneLength:0.#} m");
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The sharp form of the same claim, and the one that says what a variant palette buys
+        /// rather than that it buys something. A lap is the remainder a stretch had left when
+        /// nothing in the palette fitted it any more, so with a one-metre panel on the shelf no lap
+        /// can reach a metre without the closing pass having declined to use it.
+        /// </para>
+        /// <para>
+        /// What is actually left over is smaller than the bound and is not a remainder at all: the
+        /// deepest lap measured is one panel thickness, where the pinwheel hands a corner from one
+        /// run to the next. The bound is stated against the palette anyway, because that is the
+        /// thing the rule is about and the corner is the same on every catalog.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void NoPanelLapsAnotherByMoreThanTheShortestVariantOnTheShelf()
+        {
+            Catalog variants = TestWorlds.VariantBoundaryCatalog();
+            float[] lengths = TestWorlds.StonePanelVariantLengths;
+            float shortest = lengths[lengths.Length - 1];
+
+            var sizes = new[] { new Vec2(60f, 60f), new Vec2(75f, 45f), new Vec2(120f, 90f) };
+
+            foreach (Vec2 size in sizes)
+            {
+                for (ulong seed = 1; seed <= 12; seed++)
+                {
+                    var parameters = new ArenaParams { Seed = seed, PlayfieldSize = size };
+                    WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, variants);
+                    ArenaLayout layout = ArenaLayout.Build(parameters);
+                    var run = new BoundaryRun(doc, variants, layout);
+
+                    Assert.That(run.WorstLap, Is.LessThanOrEqualTo(shortest + Tolerance),
+                        $"{size.X} x {size.Y}, seed {seed}: one panel laps another by " +
+                        $"{run.WorstLap:0.###} m, past the {shortest:0.###} m panel that would " +
+                        "have closed the stretch exactly");
+                }
+            }
+        }
+
         [Test]
         public void TheBoundaryClosesEveryCornerOfThePlayfield()
         {
@@ -511,6 +617,9 @@ namespace ArenaForge.Tests
 
             readonly int[] _counts = new int[EdgeCount];
             readonly float _coverage;
+            readonly float _doubled;
+            readonly float _worstOverlap;
+            readonly int _segments;
 
             public BoundaryRun(WorldDoc doc, Catalog catalog, ArenaLayout layout)
             {
@@ -535,16 +644,41 @@ namespace ArenaForge.Tests
                 }
 
                 float covered = 0f;
+                float laid = 0f;
                 for (int edge = 0; edge < EdgeCount; edge++)
                 {
                     covered += Merged(spans[edge]);
+                    _worstOverlap = MathF.Max(_worstOverlap, WorstOverlap(spans[edge]));
+                    _segments += _counts[edge];
+
+                    for (int i = 0; i < spans[edge].Count; i++)
+                    {
+                        laid += spans[edge][i].Y - spans[edge][i].X;
+                    }
                 }
 
                 _coverage = covered / (2f * (field.Width + field.Depth));
+                _doubled = laid - covered;
             }
 
             /// <summary>Share of the playfield's perimeter the boundary actually stands on.</summary>
             public float Coverage => _coverage;
+
+            /// <summary>
+            /// Metres of panel standing on ground another panel already covers, over the whole ring.
+            /// </summary>
+            /// <remarks>
+            /// The waste a run's closing pass leaves behind: the walk itself only ever advances, so
+            /// every metre counted here was laid by <c>WallRun.FillStretch</c> seating a piece back
+            /// inside the run because the remainder was shorter than the piece.
+            /// </remarks>
+            public float Doubled => _doubled;
+
+            /// <summary>The deepest any one panel laps another, in metres.</summary>
+            public float WorstLap => _worstOverlap;
+
+            /// <summary>How many panels the whole ring is built of.</summary>
+            public int PanelCount => _segments;
 
             /// <summary>How many segments stand on one edge.</summary>
             public int SegmentsOn(int edge) => _counts[edge];
@@ -572,6 +706,32 @@ namespace ArenaForge.Tests
                     case 2: return "high Z";
                     default: return "low X";
                 }
+            }
+
+            /// <summary>The deepest any one span laps the ground its neighbours already cover.</summary>
+            /// <remarks>
+            /// Measured against a running high-water mark rather than pairwise, so a piece seated
+            /// back over two shorter ones is counted for all of what it laps and not for the worse
+            /// of two halves.
+            /// </remarks>
+            static float WorstOverlap(List<Vec2> spans)
+            {
+                spans.Sort((a, b) => a.X.CompareTo(b.X));
+
+                float worst = 0f;
+                float cursor = float.NegativeInfinity;
+
+                for (int i = 0; i < spans.Count; i++)
+                {
+                    if (cursor > spans[i].X)
+                    {
+                        worst = MathF.Max(worst, MathF.Min(cursor, spans[i].Y) - spans[i].X);
+                    }
+
+                    cursor = MathF.Max(cursor, spans[i].Y);
+                }
+
+                return worst;
             }
 
             /// <summary>Total length the spans cover, counting overlapping ones once.</summary>

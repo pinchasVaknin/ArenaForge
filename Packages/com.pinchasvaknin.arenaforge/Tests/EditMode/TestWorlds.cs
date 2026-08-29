@@ -609,6 +609,81 @@ namespace ArenaForge.Tests
         }
 
         /// <summary>
+        /// <see cref="ArtPackScaleBoundaryCatalog"/> with shorter stone panels filed beside the
+        /// long one, the way a pack's fence folder holds a family of lengths.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The catalog the length-variant rule is measured against. Every panel here carries
+        /// <see cref="PerimeterFence.StoneFenceTag"/>, so this is one folder's art at several
+        /// lengths and not the wood-into-stone mixing that stage rejected — the distinction
+        /// <c>WallRun.LongestThatFits</c> turns on.
+        /// </para>
+        /// <para>
+        /// Same weight on every row, so the walk's own draws are as likely to reach for a short
+        /// panel as a long one and the improvement measured cannot come from weighting.
+        /// </para>
+        /// </remarks>
+        public static Catalog VariantBoundaryCatalog()
+        {
+            IReadOnlyList<CatalogEntry> boundary = ArtPackScaleBoundaryCatalog().Entries;
+            var entries = new List<CatalogEntry>(boundary.Count + StonePanelVariantLengths.Length);
+
+            for (int i = 0; i < boundary.Count; i++)
+            {
+                entries.Add(boundary[i]);
+            }
+
+            foreach (float length in StonePanelVariantLengths)
+            {
+                entries.Add(new CatalogEntry(
+                    StoneVariantId(length),
+                    new[] { "fence", PerimeterFence.StoneFenceTag },
+                    new Rect2(
+                        -length * 0.5f, -StonePanelThickness * 0.5f,
+                        length * 0.5f, StonePanelThickness * 0.5f),
+                    2f,
+                    1f,
+                    null));
+            }
+
+            return new Catalog(entries.ToArray());
+        }
+
+        /// <summary>
+        /// <see cref="VariantBoundaryCatalog"/> holding only its shortest stone panel, which is what
+        /// the boundary was built of before a run could choose a length.
+        /// </summary>
+        /// <remarks>
+        /// The control the variant catalog is compared against. Only the stone is thinned out: the
+        /// hedges, the yard fencing and the houses stay, so the two maps differ in the palette one
+        /// stage draws from and in nothing else.
+        /// </remarks>
+        public static Catalog ShortestOnlyBoundaryCatalog()
+        {
+            float shortest = StonePanelVariantLengths[StonePanelVariantLengths.Length - 1];
+            IReadOnlyList<CatalogEntry> variants = VariantBoundaryCatalog().Entries;
+            var entries = new List<CatalogEntry>(variants.Count);
+
+            for (int i = 0; i < variants.Count; i++)
+            {
+                CatalogEntry entry = variants[i];
+                bool stone = entry.HasTag(PerimeterFence.StoneFenceTag);
+
+                if (!stone || entry.LogicalId == StoneVariantId(shortest))
+                {
+                    entries.Add(entry);
+                }
+            }
+
+            return new Catalog(entries.ToArray());
+        }
+
+        /// <summary>Logical id of the stone panel of this length in <see cref="VariantBoundaryCatalog"/>.</summary>
+        public static string StoneVariantId(float length) =>
+            $"fence/stonefence/panel_{length:0}m";
+
+        /// <summary>
         /// <see cref="ArtPackScaleBoundaryCatalog"/> with a door declared in each structure's two
         /// facing walls.
         /// </summary>
@@ -679,6 +754,18 @@ namespace ArenaForge.Tests
 
         /// <summary>How wide the house in <see cref="ArtPackScaleBoundaryCatalog"/> is, in metres.</summary>
         public const float BroadHouseSide = 12f;
+
+        /// <summary>
+        /// The shorter stone panels <see cref="VariantBoundaryCatalog"/> offers beside the long
+        /// one, in metres, longest first.
+        /// </summary>
+        /// <remarks>
+        /// Ten, five, two and one against a thirty-metre panel, which is the shape a pack's fence
+        /// folder actually has: one piece the wall is mostly built of and a few shorter ones for
+        /// the ends. They are not divisors of any edge this suite measures, on purpose — a palette
+        /// that happened to divide the map would prove the arithmetic and not the choice.
+        /// </remarks>
+        public static readonly float[] StonePanelVariantLengths = { 10f, 5f, 2f, 1f };
 
         /// <summary>
         /// <see cref="BoundaryCatalog"/> with a foundation modelled under both fence panels and a

@@ -6,6 +6,42 @@ All notable changes to this package are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **A run closes with the longest piece that fits, so a catalog can carry length variants.**
+  `WallRun.CloseGaps` read the shortest piece in the palette once and tiled every bare stretch with
+  it; it now chooses per step, through `WallRun.LongestThatFits`. A folder holding a thirty-metre
+  panel and a few shorter ones closes a nine-metre tail with a five, a two and a one where it used
+  to seat a thirty-metre panel back over its neighbour.
+
+  **What it buys is not coverage — the boundary already closed.** What it stops is the stacking.
+  Over 160 maps at four sizes with the art-pack-scale catalog, panel laid over panel falls from
+  4,192 m to 193 m, 95.4% less, and the deepest single lap from 15.3 m to 0.30 m — which is one
+  panel thickness, the corner the pinwheel hands from one run to the next, and no longer a
+  remainder at all. Coverage is identical to four decimal places on every size, which is the point:
+  the fence was closing, and it was closing by wasting half a panel.
+
+  **A palette of one length is untouched**, because the longest that fits is then the only piece
+  there is. Every map generated from a catalog whose fence folder holds a single panel — which is
+  every map this tool has generated so far — comes back byte for byte the same.
+
+  **No draw is taken**, on the terms `Shortest` already set: the closing pass runs after the walk's
+  draws are spent and ties break by catalog order, so a run cannot depend on how many picks missed.
+
+  **The walk itself is unchanged and still picks at weighted random**, which is where the one cost
+  lands: a catalog offering five lengths builds a sixty-metre edge out of about forty-five panels
+  where a single-length catalog used eight. Weighting the long panel up does not recover it — a slot
+  that draws a piece too long for the ground left retries, gives up, and hands that ground to the
+  closing pass, which fills it greedily. Making the walk length-aware is the fix and is not done
+  here; it would move every existing map.
+
+  **One recorded baseline was re-recorded, deliberately.**
+  `RoadFurnitureTests.UnfurnishedDigests` holds two hundred digests of a kerbed map, and
+  `TestWorlds.KerbCatalog` files two lengths of kerbing on purpose — so it is exactly the sort of
+  catalog this rule changes, and all two hundred moved. Every road and kerb property in the suite
+  held across the change, so what moved is the map and not a guarantee; the array was re-recorded on
+  the editor's own runtime, the way its remarks require, and those remarks now say why it moved.
+
 ### Added
 
 - **The road network is drawn in the scene view, off a cache.** A `Road network` toggle on the
