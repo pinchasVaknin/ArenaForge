@@ -73,6 +73,34 @@ All notable changes to this package are documented here. The format follows
 
 ### Fixed
 
+- **A road drawn twice is drawn once.** `RoadNetwork.Merge` drops a segment that rides inside another
+  segment's carriageway, after the routing and before the network is assembled. Over sixty seeds on
+  flat ground that is 17.9 segments a map down to 12.8, and 311 m of polyline down to 268 m.
+
+  The spanning tree joins every portal to every other, and some of its edges retrace an artery that
+  is already there — two attachments on one trunk are joined through the trunk, and the tree does not
+  know it. `ExtraEdgeCount` called that harmless because the route costs no new ground. True of the
+  ground and false of everything stood along it: `RoadKerbs` and `RoadFurniture` both walk `Segments`,
+  and the scene-view guides draw every one, so a retraced artery was a second run of kerbing, a
+  second set of street furniture and a second line on screen.
+
+  **It rides on one road, not on the network.** Two earlier rules were wrong and the suite caught
+  both. Asking for nine tenths of a segment to be covered and arguing its ends must therefore be
+  covered too: a tenth is enough to reach off an artery to a portal. Then testing the ends against
+  everything kept so far: a segment half on one artery and half on another is covered by the pair and
+  is the join between them, so dropping it took the network into two pieces on 21 seeds in 1000.
+  Against a single road the argument holds — the segment goes where that road already goes, so it
+  joins nothing that road does not, so removing it cannot separate anything.
+
+  **It does not move the braiding figure**, which looks as though it should. `CorridorLength` counts
+  the cells the network covers and a cell two segments cover is counted once, so what this removes
+  was never in that total. What it removes is objects and lines.
+
+  Two recorded baselines moved with it and were re-recorded on the editor's own runtime:
+  `UnfurnishedDigests` on 22 seeds of 200, `KerblessDigests` on 1 of 200. Every road property held
+  across the change — one piece, both spawns reached, nothing through a structure, braiding under its
+  threshold — so what moved is the map and not a guarantee.
+
 - **The road gradient limit was walling roads out of hilly maps, and the suite was calibrated
   around it.** `MaxRoadGradient` defaults to 0.6 where it was 0.25. Ground steeper than the limit is
   impassable to the router — `RoadNetwork.NaturalCost` — so the limit does not slow a route over
