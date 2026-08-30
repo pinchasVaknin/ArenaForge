@@ -392,11 +392,17 @@ namespace ArenaForge.Editor
         /// back together on one Ctrl+Z along with Unity's own transform entry.
         /// </para>
         /// <para>
-        /// <strong>It can put an object off the placement grid</strong>, and the overlay's placement
-        /// verdict will say so. Two snaps that disagree is the honest state of things — art whose
-        /// footprint does not divide the cell cannot be both flush with its neighbour and on the
-        /// grid — and the tool shows the conflict rather than choosing for you. The art this tool
-        /// ships is metre-based, where the two agree.
+        /// <strong>An edge in reach wins, and the grid is the fallback.</strong> A drop with nothing
+        /// near it lands on the nearest cell rather than exactly where the mouse let go, so nudging
+        /// something a few centimetres left and right does not leave it a few centimetres off. A
+        /// drop beside a neighbour lines up with the neighbour instead, because that is what the
+        /// user was aiming at.
+        /// </para>
+        /// <para>
+        /// <strong>An edge snap can still leave an object off the grid</strong>, and the overlay's
+        /// placement verdict will say so. Art whose footprint does not divide the cell cannot be
+        /// both flush with its neighbour and on the grid; the tool shows the conflict rather than
+        /// choosing for you. The art it ships is metre-based, where the two agree.
         /// </para>
         /// </remarks>
         CorePose Snapped(WorldDoc doc, Watched watched, CorePose current)
@@ -432,17 +438,25 @@ namespace ArenaForge.Editor
                 }
             }
 
-            if (!EdgeSnap.TryFlush(
-                    current.Bounds(entry.Footprint), neighbours, SnapReach(), out Vec2 offset))
+            ArenaGrid grid = ArenaLayout.Build(_map.BuildParams()).Grid;
+
+            // An edge in reach wins; the grid is what a drop falls back on. That order is the whole
+            // of how the two snaps are reconciled: lining a wall up with the wall beside it is a
+            // thing the user aimed at, and the grid is what they get when they aimed at open floor.
+            bool flush = EdgeSnap.TryFlush(
+                current.Bounds(entry.Footprint), neighbours, SnapReach(), out Vec2 offset);
+
+            Vec2 placed = flush
+                ? new Vec2(current.Position.X + offset.X, current.Position.Z + offset.Y)
+                : grid.Snap(new Vec2(current.Position.X, current.Position.Z));
+
+            if (Near(placed.X, current.Position.X) && Near(placed.Y, current.Position.Z))
             {
                 return current;
             }
 
             var snapped = new CorePose(
-                new Vec3(
-                    current.Position.X + offset.X,
-                    current.Position.Y,
-                    current.Position.Z + offset.Y),
+                new Vec3(placed.X, current.Position.Y, placed.Y),
                 current.Rotation,
                 current.Scale,
                 current.VerticalScale);
@@ -452,6 +466,14 @@ namespace ArenaForge.Editor
 
             return snapped;
         }
+
+        /// <summary>Two coordinates the same to within a tenth of a millimetre.</summary>
+        /// <remarks>
+        /// So a snap that moved nothing writes nothing. Without it every drop that was already where
+        /// it belonged would register a transform write and an override, and holding an object still
+        /// would look like editing it.
+        /// </remarks>
+        static bool Near(float a, float b) => Mathf.Abs(a - b) < 1e-4f;
 
         /// <summary>How far an edge may pull, in metres: half a cell of the map's own grid.</summary>
         /// <remarks>

@@ -39,8 +39,8 @@ namespace ArenaForge.Editor
     /// </remarks>
     static class ArenaPlacementGuides
     {
-        // Above the lane bands and the spawns so a verdict reads over them, below the playfield
-        // outline, which is the one line that should stay on top.
+        // Clearance over whatever it is drawn on, so the quad does not z-fight the ground it is
+        // describing. Above the lane bands and the spawns, which are drawn flat.
         const float CellHeight = 0.065f;
 
         static readonly Color AllowedFill = new Color(0.25f, 0.85f, 0.45f, 0.18f);
@@ -84,7 +84,7 @@ namespace ArenaForge.Editor
                 return;
             }
 
-            Selected(map, doc, Subjects);
+            Selected(map, doc.Resolve(), Subjects);
             if (Subjects.Count == 0)
             {
                 return;
@@ -92,6 +92,7 @@ namespace ArenaForge.Editor
 
             Catalog catalog = asset.ToCatalog();
             IReadOnlyList<Rect2> corridors = map.Roads != null ? map.Roads.Corridors : null;
+            TerrainField ground = map.Ground;
 
             Matrix4x4 previousMatrix = Handles.matrix;
             Color previousColor = Handles.color;
@@ -102,7 +103,7 @@ namespace ArenaForge.Editor
 
             for (int i = 0; i < Subjects.Count; i++)
             {
-                DrawVerdict(layout, doc, catalog, corridors, Subjects[i]);
+                DrawVerdict(layout, doc, catalog, corridors, ground, Subjects[i]);
             }
 
             Handles.zTest = previousZTest;
@@ -117,6 +118,7 @@ namespace ArenaForge.Editor
             WorldDoc doc,
             Catalog catalog,
             IReadOnlyList<Rect2> corridors,
+            TerrainField ground,
             PlacedObject subject)
         {
             if (!CoverPlacer.TryJudge(
@@ -144,7 +146,7 @@ namespace ArenaForge.Editor
                         continue;
                     }
 
-                    DrawCell(grid.CellBounds(x, z), fill, line);
+                    DrawCell(grid.CellBounds(x, z), ground, fill, line);
                 }
             }
 
@@ -152,6 +154,7 @@ namespace ArenaForge.Editor
             // keeping the refusal is being able to say which one.
             DrawChip(
                 footprint.Center,
+                Lift(ground, footprint.Center),
                 result.IsOk ? "ok" : result.Failed.ToString(),
                 line);
         }
@@ -162,10 +165,29 @@ namespace ArenaForge.Editor
         static int Index(ArenaGrid grid, float coordinate, float origin) =>
             Mathf.FloorToInt((coordinate - origin) / grid.CellSize);
 
-        // The selection is GameObjects; the verdict is about document objects. ArenaObjectRef is
-        // what bridges the two, and it is on the realised instance rather than looked up by name
-        // because a name is not an id and a user may rename anything in a scene.
-        static void Selected(ArenaMap map, WorldDoc doc, List<PlacedObject> into)
+        /// <summary>
+        /// The realised objects in the selection, at the pose they are standing at right now.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The selection is GameObjects; the verdict is about document objects. ArenaObjectRef is
+        /// what bridges the two, and it is on the realised instance rather than looked up by name
+        /// because a name is not an id and a user may rename anything in a scene.
+        /// </para>
+        /// <para>
+        /// <strong>The pose comes off the transform, not out of the document.</strong> A drag does
+        /// not reach the document until the object comes to rest — that is what makes one gesture
+        /// one override — so a verdict read from the document is a verdict about where the object
+        /// used to be. It stayed behind while the crate moved, which is worse than no verdict at
+        /// all.
+        /// </para>
+        /// <para>
+        /// Found in the <em>resolved</em> map rather than the generated list, so an object somebody
+        /// added by hand is judged like any other. Under the generated list alone it was invisible:
+        /// selecting it drew nothing.
+        /// </para>
+        /// </remarks>
+        static void Selected(ArenaMap map, ResolvedWorld world, List<PlacedObject> into)
         {
             into.Clear();
             GameObject[] selection = Selection.gameObjects;
@@ -183,10 +205,10 @@ namespace ArenaForge.Editor
                     continue;
                 }
 
-                PlacedObject placed = Find(doc, reference.StableId);
+                PlacedObject placed = Find(world, reference.StableId);
                 if (placed != null && !IsStructure(placed))
                 {
-                    into.Add(placed);
+                    into.Add(placed.WithPose(CoreConvert.ToCorePose(reference.transform)));
                 }
             }
         }
@@ -205,25 +227,27 @@ namespace ArenaForge.Editor
             return false;
         }
 
-        static PlacedObject Find(WorldDoc doc, string stableId)
+        static PlacedObject Find(ResolvedWorld world, string stableId)
         {
-            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            for (int i = 0; i < world.Objects.Count; i++)
             {
-                if (string.Equals(doc.GeneratedObjects[i].StableId, stableId, StringComparison.Ordinal))
+                if (string.Equals(world.Objects[i].StableId, stableId, StringComparison.Ordinal))
                 {
-                    return doc.GeneratedObjects[i];
+                    return world.Objects[i];
                 }
             }
 
             return null;
         }
 
-        static void DrawCell(Rect2 cell, Color fill, Color line)
+        // A corner at a time rather than one height for the cell, so a quad on a slope lies along
+        // it instead of cutting into the hill at one end and lifting off it at the other.
+        static void DrawCell(Rect2 cell, TerrainField ground, Color fill, Color line)
         {
-            Quad[0] = new Vector3(cell.MinX, CellHeight, cell.MinZ);
-            Quad[1] = new Vector3(cell.MaxX, CellHeight, cell.MinZ);
-            Quad[2] = new Vector3(cell.MaxX, CellHeight, cell.MaxZ);
-            Quad[3] = new Vector3(cell.MinX, CellHeight, cell.MaxZ);
+            Quad[0] = Corner(ground, cell.MinX, cell.MinZ);
+            Quad[1] = Corner(ground, cell.MaxX, cell.MinZ);
+            Quad[2] = Corner(ground, cell.MaxX, cell.MaxZ);
+            Quad[3] = Corner(ground, cell.MinX, cell.MaxZ);
 
             // Reset to white before the fill for the reason ArenaLayoutGuides does: both calls
             // multiply by Handles.color, so the previous cell's line colour would tint this fill.
@@ -234,7 +258,24 @@ namespace ArenaForge.Editor
             Handles.DrawAAPolyLine(2f, Quad[0], Quad[1], Quad[2], Quad[3], Quad[0]);
         }
 
-        static void DrawChip(Vec2 center, string text, Color color)
+        static Vector3 Corner(TerrainField ground, float x, float z) =>
+            new Vector3(x, Lift(ground, new Vec2(x, z)), z);
+
+        /// <summary>
+        /// How high to draw at a point: just clear of the ground, or of nothing when the map has not
+        /// been realised in this domain.
+        /// </summary>
+        /// <remarks>
+        /// The field is the one the last realise produced — <c>ArenaMap.Ground</c> — for the reason
+        /// the road network is cached rather than rebuilt: a repaint runs per scene view and per
+        /// camera in it, and re-deriving a heightfield to draw on would do it several times a frame.
+        /// A map with no cached ground draws flat, which is what it did before this and is right for
+        /// a map with no relief in it.
+        /// </remarks>
+        static float Lift(TerrainField ground, Vec2 at) =>
+            ground == null ? CellHeight : ground.HeightAt(at) + CellHeight;
+
+        static void DrawChip(Vec2 center, float height, string text, Color color)
         {
             if (_chip == null)
             {
@@ -247,7 +288,7 @@ namespace ArenaForge.Editor
             }
 
             _chip.normal.textColor = color;
-            Handles.Label(new Vector3(center.X, CellHeight, center.Y), text, _chip);
+            Handles.Label(new Vector3(center.X, height, center.Y), text, _chip);
         }
     }
 }

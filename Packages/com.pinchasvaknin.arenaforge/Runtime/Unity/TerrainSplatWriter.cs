@@ -85,6 +85,70 @@ namespace ArenaForge.Unity
         /// <param name="terrain">The terrain to paint into. Nothing happens if it is null.</param>
         /// <param name="arteryLayer">Index of the terrain layer a trunk is painted in.</param>
         /// <param name="pathLayer">Index of the terrain layer a branch is painted in.</param>
+        /// <summary>
+        /// Takes the road surface back off a terrain, leaving every texel wholly its first layer.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The counterpart of <see cref="Apply"/>, and what <c>ArenaMap.Clear</c> needs: flattening
+        /// the heights puts the ground back and leaves the roads painted on it, so a cleared map
+        /// still had a network drawn across a field with nothing on it.
+        /// </para>
+        /// <para>
+        /// <strong>Everything, not just what a network covered.</strong> Clearing is the one moment
+        /// there is no network to ask — the document has gone — so the region a road used to occupy
+        /// is not knowable. Painting the whole map back to its first layer is the only answer that
+        /// cannot leave a stripe behind, and it is what a terrain looks like before this tool
+        /// touches it.
+        /// </para>
+        /// <para>
+        /// It writes nothing when the terrain has one layer or none: with a single channel every
+        /// texel is already wholly that layer, and a write would dirty an asset to no effect.
+        /// </para>
+        /// </remarks>
+        public static void Clear(Terrain terrain)
+        {
+            if (terrain == null)
+            {
+                return;
+            }
+
+            TerrainData data = terrain.terrainData;
+            if (data == null || data.alphamapLayers <= 1)
+            {
+                return;
+            }
+
+            int width = data.alphamapWidth;
+            int height = data.alphamapHeight;
+            int layers = data.alphamapLayers;
+            var weights = new float[height, width, layers];
+
+            for (int z = 0; z < height; z++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    weights[z, x, 0] = 1f;
+                }
+            }
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEditor.Undo.RegisterCompleteObjectUndo(data, "ArenaForge: clear roads");
+            }
+#endif
+
+            data.SetAlphamaps(0, 0, weights);
+
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                UnityEditor.EditorUtility.SetDirty(data);
+            }
+#endif
+        }
+
         public static void Apply(
             RoadNetwork roads, TerrainField field, Terrain terrain, int arteryLayer, int pathLayer)
         {

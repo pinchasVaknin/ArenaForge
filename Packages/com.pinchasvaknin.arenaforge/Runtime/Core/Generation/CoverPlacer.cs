@@ -620,9 +620,15 @@ namespace ArenaForge.Core
             footprint = subject.Pose.Bounds(entry.Footprint);
             var constraints = new ConstraintSet(layout, Rules(layout, LaneOf(layout, footprint.Center)));
 
-            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            // The map as it stands rather than as it was generated: a crate somebody added by hand
+            // is something to keep clear of, and one somebody deleted is not. Judging against the
+            // generated list alone made user-added objects invisible in both directions — they were
+            // neither judged nor avoided.
+            IReadOnlyList<PlacedObject> world = doc.Resolve().Objects;
+
+            for (int i = 0; i < world.Count; i++)
             {
-                PlacedObject other = doc.GeneratedObjects[i];
+                PlacedObject other = world[i];
                 if (string.Equals(other.StableId, subject.StableId, StringComparison.Ordinal) ||
                     IsSocketProp(other.StableId))
                 {

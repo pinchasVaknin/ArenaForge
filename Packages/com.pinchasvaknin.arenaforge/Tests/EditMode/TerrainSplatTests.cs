@@ -82,6 +82,62 @@ namespace ArenaForge.Tests
         /// That some texels actually came out as road is asserted alongside it, because a writer
         /// that painted nothing at all would satisfy the sum trivially.
         /// </para>
+        /// <remarks>
+        /// The other half of painting, and the one a cleared map needs: flattening the heights puts
+        /// the ground back and leaves the road drawn on it. Every texel, not just the painted ones —
+        /// clearing happens when the document has gone, so there is no network left to ask where the
+        /// road used to be, and a region-only wipe would leave a stripe nobody could account for.
+        /// </remarks>
+        [Test]
+        public void ClearingTakesEveryTexelBackToItsFirstLayer()
+        {
+            TerrainField field = Ground(out RoadNetwork roads, out ArenaParams parameters);
+            Build(parameters, resolution: 128);
+
+            TerrainSplatWriter.Apply(roads, field, _terrain, arteryLayer: 1, pathLayer: 2);
+
+            int resolution = _data.alphamapResolution;
+            float[,,] painted = _data.GetAlphamaps(0, 0, resolution, resolution);
+
+            var road = 0;
+            for (int z = 0; z < resolution; z++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    if (painted[z, x, 1] > 0f || painted[z, x, 2] > 0f)
+                    {
+                        road++;
+                    }
+                }
+            }
+
+            Assert.That(road, Is.GreaterThan(0), "nothing was painted, so nothing is being cleared");
+
+            TerrainSplatWriter.Clear(_terrain);
+
+            float[,,] cleared = _data.GetAlphamaps(0, 0, resolution, resolution);
+            for (int z = 0; z < resolution; z++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    Assert.That(cleared[z, x, 0], Is.EqualTo(1f).Within(1e-4f),
+                        $"texel {x},{z} is not wholly its first layer");
+                    Assert.That(cleared[z, x, 1], Is.EqualTo(0f).Within(1e-4f));
+                    Assert.That(cleared[z, x, 2], Is.EqualTo(0f).Within(1e-4f));
+                }
+            }
+        }
+
+        /// <remarks>
+        /// A terrain with one channel is already wholly that channel, so there is nothing to undo and
+        /// a write would dirty somebody's asset to no effect.
+        /// </remarks>
+        [Test]
+        public void ClearingATerrainWithNothingToUnpaintWritesNothing()
+        {
+            Assert.DoesNotThrow(() => TerrainSplatWriter.Clear(null));
+        }
+
         /// </remarks>
         [Test]
         public void EveryTouchedTexelSumsToOne()

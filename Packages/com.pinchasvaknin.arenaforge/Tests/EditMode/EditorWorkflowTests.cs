@@ -91,6 +91,46 @@ namespace ArenaForge.Tests
             };
         }
 
+        // --- where a dropped object lands -----------------------------------------------------
+
+        /// <remarks>
+        /// <para>
+        /// A drop with nothing near it lands on the nearest cell rather than exactly where the mouse
+        /// let go. Nudging a crate a few centimetres left and right should not leave it a few
+        /// centimetres off the grid every generated object is on — and it is the fallback that
+        /// settles the disagreement between the two snaps, since a drop that takes the grid is a
+        /// drop the placement rules will accept.
+        /// </para>
+        /// <para>
+        /// Moved well clear of everything else so no edge is in reach: an edge in reach wins, and
+        /// that is the case the other snap is for.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADropWithNothingNearItLandsOnTheGrid()
+        {
+            GenerateAndWatch();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaLayout layout = ArenaLayout.Build(_map.BuildParams());
+            Vec2 open = layout.Grid.Snap(new Vec2(cover.Pose.Position.X, cover.Pose.Position.Z));
+
+            // A third of a cell off the intersection, which is further than the arithmetic and
+            // nearer than the next cell.
+            float nudge = layout.Grid.CellSize / 3f;
+
+            MoveInScene(
+                cover.StableId,
+                CorePose.At(new CoreVec3(open.X + nudge, cover.Pose.Position.Y, open.Y + nudge)));
+            Tick();
+
+            CorePose landed = PoseOf(_map, cover.StableId);
+            Assert.That(layout.Grid.IsOnGrid(new Vec2(landed.Position.X, landed.Position.Z)), Is.True,
+                $"a dropped object came to rest at {landed.Position.X}, {landed.Position.Z}, " +
+                "which is not on the grid");
+        }
+
         // --- swapping the art under an object -------------------------------------------------
 
         /// <remarks>

@@ -73,6 +73,33 @@ All notable changes to this package are documented here. The format follows
 
 ### Fixed
 
+- **Six faults an hour in the editor found that the suites did not.** All of them in what the scene
+  view shows or writes, which is the half of the tool no property test looks at.
+
+  - **The swap dropdown put itself back before the button could be pressed.** `RefreshSwap` runs on
+    every editor update and wrote the field's value each time, so a choice was overwritten between
+    making it and reaching `Swap` — which then swapped an object for itself and appeared to do
+    nothing. The value is written only when the row starts describing a different object.
+  - **The placement verdict stayed behind while the object moved.** It read the pose out of the
+    document, and a drag does not reach the document until the object comes to rest — that is what
+    makes one gesture one override. It reads the live transform now.
+  - **An object added by hand got no verdict and cast no shadow.** `Selected` searched the generated
+    list, where a user-added object is not: it lives as an `Add` override. `CoverPlacer.TryJudge`
+    counted neighbours from the same list, so such an object was also not something to keep clear
+    of. Both go through `Resolve()` now — the map as it stands rather than as it was generated.
+  - **The verdict was drawn at a fixed height**, so on relief it was buried in a hill and hung in
+    the air over a hollow. `ArenaMap.Ground` caches the field the last realise produced, beside
+    `Roads` and out of the same call, and the cells are sampled a corner at a time so a quad on a
+    slope lies along it. The lane bands and spawn areas are still drawn flat.
+  - **A drop landed exactly where the mouse let go.** An edge in reach still wins; a drop with
+    nothing near it now lands on the nearest cell. That is also what settles the disagreement
+    between the two snaps — a drop that takes the grid is a drop the placement rules accept.
+  - **`Clear` left the roads painted on the terrain.** `FlattenTerrain` resets heights and nothing
+    reset the alphamap, so a cleared map kept a network drawn across an empty field.
+    `TerrainSplatWriter.Clear` takes every texel back to its first layer — every texel, because
+    clearing happens once the document has gone and there is no network left to ask where the road
+    was.
+
 - **`CatalogSync` measures a prefab in its own root space, so the root's own scale is not counted.**
   `Extent` composes `root.worldToLocalMatrix * of.localToWorldMatrix`, which cancels for a component
   on the root itself — while `WorldRealizer` instantiates that prefab and the root scale plainly does

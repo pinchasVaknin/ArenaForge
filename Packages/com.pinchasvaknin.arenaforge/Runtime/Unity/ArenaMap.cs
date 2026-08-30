@@ -294,6 +294,21 @@ namespace ArenaForge.Unity
         /// </remarks>
         public RoadNetwork Roads { get; private set; }
 
+        /// <summary>
+        /// The ground the last realise put this map on, or null if it has not been realised in this
+        /// domain.
+        /// </summary>
+        /// <remarks>
+        /// Kept for the same reason <see cref="Roads"/> is, and out of the same call: it comes back
+        /// from <c>ArenaLayoutGenerator.Terrain</c> beside the network, and rebuilding it per repaint
+        /// would be re-finding the roads several times a frame. What wants it is the scene view —
+        /// guides drawn at a fixed height are buried in a hill and hang in the air over a hollow, so
+        /// anything drawn flat on the ground has to be able to ask how high the ground is.
+        /// Not serialised, on the same grounds: it is derived from the document, and a stored copy
+        /// is the same map twice.
+        /// </remarks>
+        public TerrainField Ground { get; private set; }
+
         /// <summary>True if this map has been generated or loaded.</summary>
         public bool HasDocument => !string.IsNullOrEmpty(_worldJson);
 
@@ -438,6 +453,7 @@ namespace ArenaForge.Unity
             if (doc == null)
             {
                 Roads = null;
+                Ground = null;
                 Realizer.Derealize();
                 return new ResolvedWorld(Array.Empty<PlacedObject>(), Array.Empty<EditOverride>());
             }
@@ -449,6 +465,7 @@ namespace ArenaForge.Unity
             // drawn, and the scene-view display is entitled to it either way.
             TerrainField ground = ArenaLayoutGenerator.Terrain(doc, out RoadNetwork roads);
             Roads = roads;
+            Ground = ground;
 
             if (_terrain != null)
             {
@@ -499,8 +516,13 @@ namespace ArenaForge.Unity
         public void Clear()
         {
             Roads = null;
+            Ground = null;
             Realizer.Derealize();
             FlattenTerrain();
+
+            // The heights go back and the paint has to go with them, or a cleared map keeps a road
+            // network drawn across a field with nothing on it.
+            TerrainSplatWriter.Clear(_terrain);
             SetDocument(null);
         }
 

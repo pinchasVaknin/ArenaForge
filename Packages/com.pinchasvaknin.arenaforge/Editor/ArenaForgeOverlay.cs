@@ -130,6 +130,7 @@ namespace ArenaForge.Editor
         Label _selection;
         VisualElement _swapRow;
         DropdownField _swapField;
+        string _swapBoundTo;
 
         ObjectField _buildingField;
         UnsignedLongField _buildingSeedField;
@@ -370,7 +371,19 @@ namespace ArenaForge.Editor
             }
 
             _swapField.choices = choices;
-            _swapField.SetValueWithoutNotify(current);
+
+            // Only when the row starts describing a different object. This runs on every editor
+            // update, and writing the value each time put the dropdown back to what the object
+            // already is between the user choosing something and reaching the button — so Swap
+            // swapped a thing for itself and appeared to do nothing at all.
+            ArenaObjectRef reference = SelectedRef();
+            string bound = reference != null ? reference.StableId : null;
+
+            if (!string.Equals(bound, _swapBoundTo, StringComparison.Ordinal))
+            {
+                _swapBoundTo = bound;
+                _swapField.SetValueWithoutNotify(current);
+            }
         }
 
         /// <summary>
@@ -454,6 +467,8 @@ namespace ArenaForge.Editor
                 map.SetDocument(doc);
                 return map.Realize();
             });
+
+            _swapBoundTo = null;
         }
 
         /// <summary>
