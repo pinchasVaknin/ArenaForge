@@ -140,20 +140,34 @@ namespace ArenaForge.Core
         /// same argument <see cref="YawStep"/> makes.
         /// </para>
         /// <para>
-        /// <strong>Six in ten, and the number is a measurement rather than a taste.</strong> It was
-        /// a quarter, which is a gentle road and far too gentle a filter: a cell steeper than this
-        /// is impassable to the router — see <c>RoadNetwork.NaturalCost</c> — so the limit does not
-        /// slow a route down over rough ground, it walls the route out of it. Over sixty seeds at
-        /// twelve metres of relief, a quarter left the network spanning half the map, with 31 of the
-        /// 60 confined to less than half and the whole thing scribbling in whatever corner it could
-        /// still reach. At four tenths that is 88% of the map and no failures; at six tenths, 91.7%,
-        /// which is the same span flat ground gives. Six is chosen over four because it is the one
-        /// that stops being the binding constraint rather than the one that just clears the bar.
+        /// <strong>It is what a road is graded to, and not what the ground under it may be.</strong>
+        /// The surface anybody drives on is never steeper than this — the grading holds that, and
+        /// the validation suite asserts it on every profile. Ground steeper than the limit is not
+        /// shut to the router: it costs <c>RoadNetwork.ClimbDetour</c> cells to cross, so a route
+        /// takes any way round a bank it can find and climbs one only when there is no way round.
         /// </para>
         /// <para>
-        /// It still bites where it should: a route is priced by how steep it is all the way up to
-        /// the limit, so a road prefers the gentle way round long before it is forbidden the steep
-        /// one. What changed is that ground the map is made of is no longer off the map.
+        /// <strong>It was a wall, and a wall could cut a spawn off the map.</strong> A cell over the
+        /// limit was impassable outright, which does not slow a route over rough ground, it deletes
+        /// the ground — and with it, sometimes, the only way to a spawn. Over forty seeds on a
+        /// hundred-metre field at twenty metres of relief, a quarter stranded a spawn on 40 maps of
+        /// 40 and six tenths on 3 of 40; priced instead of forbidden, it is 0 of 40 at every limit,
+        /// and the road laid per map at a quarter goes from 92.5 m to 371 m.
+        /// </para>
+        /// <para>
+        /// <strong>What the climb costs is earthworks.</strong> Over seeds 1..1000 on the validation
+        /// sweep's own ground, 0.109% of the road laid crosses ground steeper than the limit — 318 m
+        /// of 290,421 — always one cell at a time, because the smoothing still refuses to straighten
+        /// a line along a bank. The grading cuts up to 2.76 m to carry it there.
+        /// </para>
+        /// <para>
+        /// <strong>Six in ten, and the number is a measurement rather than a taste.</strong> It was
+        /// a quarter, which is a gentle road and far too gentle a filter. Over sixty seeds at twelve
+        /// metres of relief, a quarter left the network spanning half the map; at four tenths that is
+        /// 88% of the map and at six tenths 91.7%, which is the same span flat ground gives. Six is
+        /// chosen over four because it is the one that stops being the binding constraint rather than
+        /// the one that just clears the bar. It is now a preference rather than a wall, so the cost
+        /// of setting it low is a road cut deeper into the hill and not a road that is not there.
         /// </para>
         /// </remarks>
         [JsonProperty("maxRoadGradient", Order = 13)]

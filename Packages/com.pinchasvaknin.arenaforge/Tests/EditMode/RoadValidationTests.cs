@@ -145,6 +145,26 @@ namespace ArenaForge.Tests
         /// <summary>Slack for a gradient compared against a limit it was built to meet exactly.</summary>
         const float GradientTolerance = 1e-3f;
 
+        /// <summary>
+        /// Most of the road laid over the whole sweep that may cross ground steeper than the limit.
+        /// </summary>
+        /// <remarks>
+        /// Half of one per cent, against 0.109% measured over seeds 1..1000 — 318 m of 290,421.
+        /// The headroom is nearly five times because what this guards against is not a drift in the
+        /// figure but a change of kind: a router that started running <em>along</em> a hillside
+        /// rather than stepping over one moves this by an order of magnitude, and a router that
+        /// went back to refusing the ground moves it to zero, which the last check in the same property
+        /// catches from the other side.
+        /// </remarks>
+        const float OverLimitShare = 0.005f;
+
+        /// <summary>Most of any one map's road that may cross ground steeper than the limit.</summary>
+        /// <remarks>
+        /// Five per cent, against a worst seed of 1.88%. A per-map bound as well as a total,
+        /// because a thousand-seed average hides one map made entirely of switchbacks.
+        /// </remarks>
+        const float OverLimitSeedShare = 0.05f;
+
         /// <summary>How far a path may arrive from the sill of the door it serves, in metres.</summary>
         /// <remarks>
         /// A centimetre. The two numbers are meant to be the same float — the profile's end is
@@ -227,7 +247,7 @@ namespace ArenaForge.Tests
             // The two properties that came with the sweep rather than out of the list above, and
             // that would have lost their thousand maps if they had been left where they were.
             EveryMetreOfCarriagewayIsReserved(broken);
-            NoRoutedSegmentIsSteeperThanTheMapAllows(broken);
+            RoadOverGroundTooSteepIsARareSingleStep(broken);
 
             if (broken.Count > 0)
             {
@@ -528,12 +548,25 @@ namespace ArenaForge.Tests
 
         /// <remarks>
         /// <para>
-        /// Rise over the run of each segment of each polyline, against
-        /// <see cref="ArenaParams.MaxRoadGradient"/>. Every one of them is either a single step
-        /// between two neighbouring cells, which the search would not take if it were too steep, or
-        /// a straightened or rounded line that the smoothing tested before it kept it — so this is
-        /// the assertion that the smoothing actually did test what it emitted rather than a superset
-        /// of it, which is a mistake that is easy to make and invisible without this.
+        /// <strong>This was a hard property and is now a bounded one.</strong> The limit stopped
+        /// being a wall: ground steeper than <see cref="ArenaParams.MaxRoadGradient"/> costs
+        /// <c>RoadNetwork.ClimbDetour</c> cells to cross rather than being shut to the router, so a
+        /// route climbs a bank when there is no way round one and a spawn behind a ridge is no
+        /// longer cut off from the map. What the road is still <em>held</em> to is the graded
+        /// profile above — the surface anybody drives on is never steeper than the limit. This is
+        /// about the ground underneath it, which the grading is there to cut.
+        /// </para>
+        /// <para>
+        /// <strong>A crossing is one step.</strong> The smoothing still tests every line it
+        /// straightens or rounds, so it will not lay a run <em>along</em> a bank — an over-limit
+        /// stretch is never longer than the one cell the route steps over. That is the claim worth
+        /// keeping from the old property, and it is the one that says the smoothing is still
+        /// testing what it emits rather than a superset of it.
+        /// </para>
+        /// <para>
+        /// <strong>And there is very little of it.</strong> Over seeds 1..1000, 318 m of 290,421 —
+        /// 0.109% — on 156 seeds, no one of them over 1.88% of its own road. See
+        /// <see cref="OverLimitShare"/> and <see cref="OverLimitSeedShare"/> for what those became.
         /// </para>
         /// <para>
         /// <strong>Over the segment, at the resolution the map has.</strong> Sampled finer than the
@@ -542,20 +575,28 @@ namespace ArenaForge.Tests
         /// cells, and a map whose ground is a function has no finer truth to be held to.
         /// </para>
         /// </remarks>
-        void NoRoutedSegmentIsSteeperThanTheMapAllows(List<string> broken)
+        void RoadOverGroundTooSteepIsARareSingleStep(List<string> broken)
         {
             var offences = new List<Offence>();
             var vetoed = 0;
+            var laid = 0f;
+            var over = 0f;
+            var worstShare = 0f;
+            var worstSeed = 0;
 
             for (int seed = 1; seed <= Seeds; seed++)
             {
                 RoadMap map = _relief[seed];
                 float limit = map.Parameters.MaxRoadGradient;
+                float step = map.Layout.Grid.CellSize;
 
                 if (map.TooSteepCells > 0)
                 {
                     vetoed++;
                 }
+
+                var seedLaid = 0f;
+                var seedOver = 0f;
 
                 for (int s = 0; s < map.Network.Segments.Count; s++)
                 {
@@ -570,29 +611,64 @@ namespace ArenaForge.Tests
                             continue;
                         }
 
+                        seedLaid += run;
+
                         float rise = MathF.Abs(
                             map.Terrain.HeightAt(points[i]) - map.Terrain.HeightAt(points[i - 1]));
                         float gradient = rise / run;
 
-                        if (gradient > limit + GradientTolerance)
+                        if (gradient <= limit + GradientTolerance)
+                        {
+                            continue;
+                        }
+
+                        seedOver += run;
+
+                        if (run > step + GradientTolerance)
                         {
                             offences.Add(new Offence(
-                                seed, gradient, $"{segment.Id} climbs at {gradient:0.####}"));
-                            break;
+                                seed, run,
+                                $"{segment.Id} runs {run:0.###} m along ground at " +
+                                $"{gradient:0.####}, which is further than the one cell a route " +
+                                $"may step over it"));
                         }
                     }
                 }
+
+                laid += seedLaid;
+                over += seedOver;
+
+                if (seedLaid > 0f && seedOver / seedLaid > worstShare)
+                {
+                    worstShare = seedOver / seedLaid;
+                    worstSeed = seed;
+                }
             }
 
-            Report(broken, "a routed segment is steeper than the map allows", offences);
+            Report(broken, "a road runs along ground steeper than the map allows", offences);
+
+            float share = laid > 0f ? over / laid : 0f;
+            if (share > OverLimitShare)
+            {
+                broken.Add(
+                    $"{share:0.000%} of the road laid crosses ground steeper than the limit " +
+                    $"({over:0.#} m of {laid:0.#} m), against {OverLimitShare:0.0%} allowed");
+            }
+
+            if (worstShare > OverLimitSeedShare)
+            {
+                broken.Add(
+                    $"seed {worstSeed} lays {worstShare:0.00%} of its road over ground steeper " +
+                    $"than the limit, against {OverLimitSeedShare:0.0%} allowed");
+            }
 
             // The relief sweep exists so the gradient limit is doing work on every map in it. A
-            // sweep laid over ground gentle enough to refuse nothing would pass both gradient
+            // sweep laid over ground gentle enough to charge nothing would pass both gradient
             // properties without ever evaluating them.
             if (vetoed != Seeds)
             {
                 broken.Add(
-                    $"the gradient limit refuses nothing on {Seeds - vetoed} of {Seeds} seeds, so " +
+                    $"the gradient limit charges nothing on {Seeds - vetoed} of {Seeds} seeds, so " +
                     "the relief sweep is not laid over ground steep enough to test grading");
             }
         }

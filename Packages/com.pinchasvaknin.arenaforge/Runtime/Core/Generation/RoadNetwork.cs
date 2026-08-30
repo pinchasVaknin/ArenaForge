@@ -353,14 +353,14 @@ namespace ArenaForge.Core
         }
 
         /// <summary>
-        /// Share of the playfield a road may cross at all, from nothing to one.
+        /// Share of the playfield a road may cross without climbing, from nothing to one.
         /// </summary>
         /// <remarks>
-        /// The one number that explains a network which came out wrong. Ground steeper than
-        /// <see cref="ArenaParams.MaxRoadGradient"/> is closed to the router outright, so a limit
-        /// set low against a lively <see cref="ArenaParams.TerrainAmplitude"/> leaves it a fraction
-        /// of the map to work in — and what it lays there is a tangle in whatever corner it can
-        /// still reach rather than a road across the arena. Neither parameter says it is fighting
+        /// The one number that says the two parameters are fighting. Ground steeper than
+        /// <see cref="ArenaParams.MaxRoadGradient"/> is not closed to the router, but crossing it
+        /// costs a long detour and has to be cut into the ground when the route takes it anyway —
+        /// so a limit set low against a lively <see cref="ArenaParams.TerrainAmplitude"/> comes out
+        /// as a map of cuttings rather than as a map of roads. Neither parameter says it is fighting
         /// the other, and this is what lets a caller say so.
         /// </remarks>
         public float PassableShare { get; }
@@ -1952,6 +1952,21 @@ namespace ArenaForge.Core
         /// <summary>Most a cell's cost is raised by standing in the open.</summary>
         const int ExposurePenalty = 15;
 
+        /// <summary>
+        /// How far round a route will go rather than climb a cell one whole limit over the limit,
+        /// in cells.
+        /// </summary>
+        /// <remarks>
+        /// Twenty, which is a fifth of the default map and long enough that a route takes any way
+        /// round a bank it can find and short enough that it does not cross the arena to avoid one.
+        /// The penalty below is that detour priced in the search's own units, so the number means
+        /// what it says rather than being a weight somebody tuned.
+        /// </remarks>
+        const int ClimbDetour = 20;
+
+        /// <summary>What a cell a whole limit steeper than the limit costs on top of the rest.</summary>
+        const int ClimbPenalty = ClimbDetour * BaseCellCost * OrthogonalStep;
+
         /// <summary>What a cell in a lane gap is discounted by.</summary>
         const int LaneGapDiscount = 4;
 
@@ -2105,7 +2120,7 @@ namespace ArenaForge.Core
             }
 
             _minCellCost = Impassable;
-            var open = 0;
+            var level = 0;
             for (int cell = 0; cell < cells; cell++)
             {
                 if (_cost[cell] == Impassable)
@@ -2113,14 +2128,18 @@ namespace ArenaForge.Core
                     continue;
                 }
 
-                open++;
+                if (Gradient(cell) <= _maxGradient)
+                {
+                    level++;
+                }
+
                 if (_cost[cell] < _minCellCost)
                 {
                     _minCellCost = _cost[cell];
                 }
             }
 
-            PassableShare = cells > 0 ? (float)open / cells : 0f;
+            PassableShare = cells > 0 ? (float)level / cells : 0f;
 
             if (_minCellCost == Impassable)
             {
@@ -2776,14 +2795,25 @@ namespace ArenaForge.Core
         }
 
         /// <summary>
-        /// What one cell costs before any road has been laid: ten, plus the slope, plus how open it
-        /// is, less the discount a lane gap carries.
+        /// What one cell costs before any road has been laid: ten, plus the slope, plus the climb
+        /// where the slope is over the limit, plus how open it is, less the lane gap's discount.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// The exposure term is what makes a route prefer ground with something beside it, which is
         /// how a street ends up running past the fronts of buildings rather than across the middle
         /// of an empty field. The lane-gap discount is what makes a gap the natural line for a way
         /// through without anything having to draw one there.
+        /// </para>
+        /// <para>
+        /// <strong>Over the limit is dear, not shut.</strong> The slope term saturates at the limit
+        /// and <see cref="ClimbPenalty"/> takes over above it, so the cost is continuous through the
+        /// limit and a cell within it prices exactly as it always did — a map with no over-limit
+        /// cell comes out unchanged, cell for cell. Returning <see cref="Impassable"/> there instead
+        /// is what used to cut a spawn behind a ridge off the network altogether: the flood fill
+        /// that numbers the open regions would put it in a region of its own, and the router only
+        /// works inside the largest. See <see cref="ArenaParams.MaxRoadGradient"/>.
+        /// </para>
         /// </remarks>
         int NaturalCost(int cell)
         {
@@ -2794,16 +2824,42 @@ namespace ArenaForge.Core
             }
 
             float gradient = Gradient(cell);
-            if (gradient > _maxGradient)
-            {
-                return Impassable;
-            }
+            float within = MathF.Min(gradient, _maxGradient);
 
             int cost = BaseCellCost +
-                       (int)(GradientPenalty * (gradient / _maxGradient)) +
+                       (int)(GradientPenalty * (within / _maxGradient)) +
+                       Climb(gradient - within) +
                        (int)(ExposurePenalty * _shelter[cell]);
 
             return InLaneGap(centre) ? cost - LaneGapDiscount : cost;
+        }
+
+        /// <summary>What a cell costs on top of the rest for being steeper than the limit allows.</summary>
+        /// <remarks>
+        /// <para>
+        /// <see cref="ClimbPenalty"/> per whole limit of excess, so the price is continuous through
+        /// the limit — a cell exactly at it pays nothing extra — and rises with how much worse than
+        /// the limit the ground is rather than jumping to one flat surcharge.
+        /// </para>
+        /// <para>
+        /// <strong>Capped at what going round everything costs.</strong> No detour on this grid is
+        /// longer than crossing it and coming back, so past that price a steeper cell cannot change
+        /// which way a route goes and charging more only makes the numbers bigger. It matters at the
+        /// bottom of <see cref="ArenaParams.MaxRoadGradient"/>'s range, where the excess is measured
+        /// in hundreds of limits and an uncapped price would run a long route's total out of an int.
+        /// </para>
+        /// </remarks>
+        int Climb(float excess)
+        {
+            if (excess <= 0f)
+            {
+                return 0;
+            }
+
+            int ceiling = (_countX + _countZ) * BaseCellCost * OrthogonalStep;
+            float price = ClimbPenalty * (excess / _maxGradient);
+
+            return price >= ceiling ? ceiling : (int)price;
         }
 
         /// <summary>Steepest slope of the ground at a point, as rise over run.</summary>

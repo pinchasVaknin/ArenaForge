@@ -128,6 +128,59 @@ All notable changes to this package are documented here. The format follows
   ground whenever the amplitude is above zero: every metric here is a claim about a level map, and a
   verdict of "playable" that does not say so is claiming more than it checked.
 
+- **Ground too steep for a road is dear to cross, and no longer shut.** `RoadNetwork.NaturalCost`
+  returned `Impassable` above `MaxRoadGradient`. It now charges `ClimbDetour` cells of detour per
+  whole limit of excess and lets the route through, so a road takes any way round a bank it can find
+  and climbs one only when there is none. Raising the default from a quarter to six tenths, above,
+  treated the symptom: the wall was still there and a spawn could still end up behind it.
+
+  **A wall could cut a spawn off the map, and did.** The flood fill that numbers the open ground
+  works on cells the router may enter, and the router only works inside the largest region it finds —
+  so a bank right across a lane did not make a spawn expensive to reach, it put the spawn in a region
+  of its own and left it off the network entirely. Over forty seeds on a hundred-metre field at
+  twenty metres of relief and a feature size of twenty, a limit of a quarter stranded a spawn on
+  **40 maps of 40** and six tenths on 3 of 40. Priced instead of forbidden it is **0 of 40 at every
+  limit**, and the road laid per map at a quarter goes from **92.5 m to 371 m**.
+
+  That is the map the user reported: seed 11162802767278075537 at those parameters had 29.8% of its
+  ground open to the router, five segments, 80 m of road inside a box covering 8.3% of the playfield,
+  and one spawn **68.5 m** from the nearest carriageway.
+
+  **The limit still means exactly what it says, for the road.** The graded profile is never steeper
+  than it — the grading holds that, and `NoGradedProfileIsSteeperThanTheMapAllows` still asserts it
+  on every profile of every seed, untouched. What changed is the ground underneath, which the grading
+  is there to cut.
+
+  **What the climb costs is earthworks.** Over seeds 1..1000 on the relief sweep's own ground, 318 m
+  of the 290,421 m laid crosses ground steeper than the limit — **0.109%**, on 156 seeds, no one of
+  them over 1.88% of its own road — and the grading cuts up to 2.76 m to carry it there. Every one of
+  those 318 m is a single one-metre step: 318 steps of 78,350, because the smoothing still tests
+  every line it straightens or rounds and so will not lay a run *along* a bank.
+
+  **One property was restated, and it is a weaker one.**
+  `NoRoutedSegmentIsSteeperThanTheMapAllows` could not survive a router that deliberately climbs; it
+  is now `RoadOverGroundTooSteepIsARareSingleStep`. The hard guarantee moved to the graded profile,
+  which already held it, and what is left is bounded rather than absolute: no over-limit stretch
+  longer than one cell, at most 0.5% of the road over the whole sweep and 5% on any one map, against
+  0.109% and 1.88% measured. The sub-check that the sweep is laid over ground steep enough to be
+  worth testing is unchanged — it now reads "charges" where it read "refuses".
+
+  **A flat map is unmoved, cell for cell.** The slope term saturates at the limit and the climb takes
+  over above it, so the cost is continuous through the limit and a cell within it prices exactly as it
+  always did. Every recorded digest in the suite is on flat ground; none moved, and the full EditMode
+  run is 696 of 696 in the editor.
+
+  **The climb is capped at what going round everything costs**, `(cells across + cells down)` times a
+  plain step. No detour on the grid is longer than that, so past it a steeper cell cannot change which
+  way a route goes — and at the bottom of the parameter's range, where the excess is measured in
+  hundreds of limits, an uncapped price would run a long route's total out of an `int`.
+
+  **Note for anyone whose map still looks wrong: a default is not a migration.** `ArenaMap` is a
+  MonoBehaviour and `_maxRoadGradient` is a serialised field, so a component created before the
+  default changed still holds the value it was serialised with. That is why the earlier default
+  change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
+  than in another number.
+
 - **Six faults an hour in the editor found that the suites did not.** All of them in what the scene
   view shows or writes, which is the half of the tool no property test looks at.
 

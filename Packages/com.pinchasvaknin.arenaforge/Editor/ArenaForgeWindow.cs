@@ -713,8 +713,8 @@ namespace ArenaForge.Editor
             {
                 lines.Add(string.Format(
                     CultureInfo.InvariantCulture,
-                    "Roads can reach {0:0.#}% of the map: Max Road Gradient ({1:0.##}) is shutting " +
-                    "out ground Terrain Amplitude ({2:0.#} m) is raising.",
+                    "Roads run level over {0:0.#}% of the map: Max Road Gradient ({1:0.##}) is " +
+                    "under the slope Terrain Amplitude ({2:0.#} m) raises, so the rest is cut in.",
                     roads.PassableShare * 100f, _map.MaxRoadGradient, _map.TerrainAmplitude));
             }
 
@@ -730,7 +730,9 @@ namespace ArenaForge.Editor
         /// gradient limit of a quarter, the network spanned half the map and scribbled in a corner.
         /// A map with buildings and spawns on it never has all of its ground open to a road anyway,
         /// so the threshold is set where the loss stops being the map's own furniture and starts
-        /// being the ground itself.
+        /// being the ground itself. The consequence it warns about has since changed: a road across
+        /// that ground is now laid and cut in rather than refused, so what a low reading means is
+        /// earthworks rather than a network that never arrives.
         /// </remarks>
         const float RoadReachWarning = 0.75f;
 
