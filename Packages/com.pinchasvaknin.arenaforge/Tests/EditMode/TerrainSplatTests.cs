@@ -113,19 +113,95 @@ namespace ArenaForge.Tests
 
             Assert.That(road, Is.GreaterThan(0), "nothing was painted, so nothing is being cleared");
 
-            TerrainSplatWriter.Clear(_terrain);
+            TerrainSplatWriter.Clear(_terrain, arteryLayer: 1, pathLayer: 2);
 
             float[,,] cleared = _data.GetAlphamaps(0, 0, resolution, resolution);
             for (int z = 0; z < resolution; z++)
             {
                 for (int x = 0; x < resolution; x++)
                 {
-                    Assert.That(cleared[z, x, 0], Is.EqualTo(1f).Within(1e-4f),
-                        $"texel {x},{z} is not wholly its first layer");
-                    Assert.That(cleared[z, x, 1], Is.EqualTo(0f).Within(1e-4f));
-                    Assert.That(cleared[z, x, 2], Is.EqualTo(0f).Within(1e-4f));
+                    Assert.That(cleared[z, x, 1], Is.EqualTo(0f).Within(1e-4f),
+                        $"texel {x},{z} still carries artery");
+                    Assert.That(cleared[z, x, 2], Is.EqualTo(0f).Within(1e-4f),
+                        $"texel {x},{z} still carries path");
+
+                    float sum = cleared[z, x, 0] + cleared[z, x, 1] + cleared[z, x, 2];
+                    Assert.That(sum, Is.EqualTo(1f).Within(1e-4f),
+                        $"texel {x},{z} does not sum to one after clearing");
                 }
             }
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The half of the contract that says what this tool does <em>not</em> own. A project paints
+        /// its own ground; the road channels are the only ones it was told to write, so clearing has
+        /// to give back what it took and leave everything else in proportion. Resetting whole texels
+        /// to the first layer would be quicker and would wipe somebody's terrain painting.
+        /// </para>
+        /// <para>
+        /// <strong>Except where the road covered a texel outright, which is not recoverable.</strong>
+        /// A texel wholly given to the road has no weight left on any other layer, so nothing records
+        /// what was under it — the painting was lost when the road went on, not when it came off.
+        /// Those texels go to the first layer, which is the only answer available, and the ones the
+        /// road merely feathered over keep their proportions exactly. Remembering the difference
+        /// would mean storing the ground beside the map, and this tool derives rather than stores.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ClearingGivesTheGroundBackWhereTheRoadDidNotCoverItOutright()
+        {
+            TerrainField field = Ground(out RoadNetwork roads, out ArenaParams parameters);
+            Build(parameters, resolution: 128);
+
+            // Ground painted half and half between two layers that are not road.
+            int resolution = _data.alphamapResolution;
+            var ground = new float[resolution, resolution, 3];
+            for (int z = 0; z < resolution; z++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    ground[z, x, 0] = 0.5f;
+                    ground[z, x, 2] = 0.5f;
+                }
+            }
+
+            _data.SetAlphamaps(0, 0, ground);
+
+            TerrainSplatWriter.Apply(roads, field, _terrain, arteryLayer: 1, pathLayer: 1);
+            float[,,] painted = _data.GetAlphamaps(0, 0, resolution, resolution);
+
+            TerrainSplatWriter.Clear(_terrain, arteryLayer: 1, pathLayer: 1);
+            float[,,] cleared = _data.GetAlphamaps(0, 0, resolution, resolution);
+
+            const float Step = 1f / 255f;
+            var feathered = 0;
+            var covered = 0;
+
+            for (int z = 0; z < resolution; z++)
+            {
+                for (int x = 0; x < resolution; x++)
+                {
+                    Assert.That(cleared[z, x, 1], Is.EqualTo(0f).Within(Step),
+                        $"texel {x},{z} still carries road");
+
+                    if (painted[z, x, 1] >= 1f - Step)
+                    {
+                        covered++;
+                        Assert.That(cleared[z, x, 0], Is.EqualTo(1f).Within(Step),
+                            $"texel {x},{z} was wholly road and has nothing to fall back to");
+                        continue;
+                    }
+
+                    feathered++;
+                    Assert.That(cleared[z, x, 0], Is.EqualTo(0.5f).Within(2f * Step),
+                        $"texel {x},{z} lost the ground painted under the road");
+                    Assert.That(cleared[z, x, 2], Is.EqualTo(0.5f).Within(2f * Step));
+                }
+            }
+
+            Assert.That(covered, Is.GreaterThan(0), "no texel was wholly road, so the fallback is untested");
+            Assert.That(feathered, Is.GreaterThan(0), "no texel kept its ground, so the restore is untested");
         }
 
         /// <remarks>
@@ -135,7 +211,8 @@ namespace ArenaForge.Tests
         [Test]
         public void ClearingATerrainWithNothingToUnpaintWritesNothing()
         {
-            Assert.DoesNotThrow(() => TerrainSplatWriter.Clear(null));
+            Assert.DoesNotThrow(() => TerrainSplatWriter.Clear(null, 1, 2));
+            Assert.DoesNotThrow(() => TerrainSplatWriter.Clear(_terrain, -1, -1));
         }
 
         /// </remarks>

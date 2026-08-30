@@ -476,6 +476,10 @@ namespace ArenaForge.Unity
                 // that window means anything. Both are off by default: see ArteryLayer.
                 if (_arteryLayer >= 0 && _pathLayer >= 0)
                 {
+                    // Unpainted before it is painted. A network is drawn over whatever the last one
+                    // left, so without this a second Generate lays its roads on top of the first
+                    // map's and the terrain keeps every network it has ever been given.
+                    TerrainSplatWriter.Clear(_terrain, _arteryLayer, _pathLayer);
                     TerrainSplatWriter.Apply(roads, ground, _terrain, _arteryLayer, _pathLayer);
                 }
             }
@@ -522,7 +526,7 @@ namespace ArenaForge.Unity
 
             // The heights go back and the paint has to go with them, or a cleared map keeps a road
             // network drawn across a field with nothing on it.
-            TerrainSplatWriter.Clear(_terrain);
+            TerrainSplatWriter.Clear(_terrain, _arteryLayer, _pathLayer);
             SetDocument(null);
         }
 

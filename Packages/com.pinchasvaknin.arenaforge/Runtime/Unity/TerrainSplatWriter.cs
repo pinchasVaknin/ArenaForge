@@ -86,50 +86,115 @@ namespace ArenaForge.Unity
         /// <param name="arteryLayer">Index of the terrain layer a trunk is painted in.</param>
         /// <param name="pathLayer">Index of the terrain layer a branch is painted in.</param>
         /// <summary>
-        /// Takes the road surface back off a terrain, leaving every texel wholly its first layer.
+        /// Takes the road surface back off a terrain: the two road channels emptied everywhere, and
+        /// every texel they touched renormalised over the layers that are left.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// The counterpart of <see cref="Apply"/>, and what <c>ArenaMap.Clear</c> needs: flattening
-        /// the heights puts the ground back and leaves the roads painted on it, so a cleared map
-        /// still had a network drawn across a field with nothing on it.
+        /// The counterpart of <see cref="Apply"/>, and two things need it. <c>ArenaMap.Clear</c>
+        /// does, because flattening the heights puts the ground back and leaves the roads painted on
+        /// it. And every realise does, because a network is painted over whatever the last one left:
+        /// without this, generating a second map draws its roads on top of the first map's and the
+        /// terrain accumulates every network it has ever been given.
         /// </para>
         /// <para>
-        /// <strong>Everything, not just what a network covered.</strong> Clearing is the one moment
-        /// there is no network to ask — the document has gone — so the region a road used to occupy
-        /// is not knowable. Painting the whole map back to its first layer is the only answer that
-        /// cannot leave a stripe behind, and it is what a terrain looks like before this tool
-        /// touches it.
+        /// <strong>Only the two road channels, and all of them.</strong> This tool owns the layers it
+        /// was told to paint roads into and owns nothing else, so a texel's other weights are left
+        /// alone and simply scaled back up to fill what the road gives up — the same renormalisation
+        /// <see cref="Apply"/> does in the other direction. Resetting whole texels to the first layer
+        /// would be quicker and would wipe whatever the project had painted underneath.
         /// </para>
         /// <para>
-        /// It writes nothing when the terrain has one layer or none: with a single channel every
-        /// texel is already wholly that layer, and a write would dirty an asset to no effect.
+        /// <strong>Everywhere, rather than over the region a network covered.</strong> Clearing is
+        /// wanted at exactly the moments the old network is not knowable — the document has gone, or
+        /// a domain reload has emptied the cache — and a region-only wipe would then leave a stripe
+        /// nobody could account for. Emptying two channels over the whole map cannot.
+        /// </para>
+        /// <para>
+        /// A texel that was wholly road has nothing left to renormalise, so it goes to the first
+        /// layer: it is ground that was road and is now not, and something has to be under it.
         /// </para>
         /// </remarks>
-        public static void Clear(Terrain terrain)
+        public static void Clear(Terrain terrain, int arteryLayer, int pathLayer)
         {
-            if (terrain == null)
+            if (terrain == null || (arteryLayer < 0 && pathLayer < 0))
             {
                 return;
             }
 
             TerrainData data = terrain.terrainData;
-            if (data == null || data.alphamapLayers <= 1)
+            if (data == null)
+            {
+                return;
+            }
+
+            int layers = data.alphamapLayers;
+            if (layers <= 1)
             {
                 return;
             }
 
             int width = data.alphamapWidth;
             int height = data.alphamapHeight;
-            int layers = data.alphamapLayers;
-            var weights = new float[height, width, layers];
+            float[,,] weights = data.GetAlphamaps(0, 0, width, height);
+
+            var touched = false;
 
             for (int z = 0; z < height; z++)
             {
                 for (int x = 0; x < width; x++)
                 {
-                    weights[z, x, 0] = 1f;
+                    float road = 0f;
+                    if (arteryLayer >= 0 && arteryLayer < layers)
+                    {
+                        road += weights[z, x, arteryLayer];
+                    }
+
+                    if (pathLayer >= 0 && pathLayer < layers && pathLayer != arteryLayer)
+                    {
+                        road += weights[z, x, pathLayer];
+                    }
+
+                    if (road <= 0f)
+                    {
+                        continue;
+                    }
+
+                    touched = true;
+
+                    if (arteryLayer >= 0 && arteryLayer < layers)
+                    {
+                        weights[z, x, arteryLayer] = 0f;
+                    }
+
+                    if (pathLayer >= 0 && pathLayer < layers)
+                    {
+                        weights[z, x, pathLayer] = 0f;
+                    }
+
+                    float rest = 0f;
+                    for (int layer = 0; layer < layers; layer++)
+                    {
+                        rest += weights[z, x, layer];
+                    }
+
+                    if (rest > 0f)
+                    {
+                        for (int layer = 0; layer < layers; layer++)
+                        {
+                            weights[z, x, layer] /= rest;
+                        }
+                    }
+                    else
+                    {
+                        weights[z, x, 0] = 1f;
+                    }
                 }
+            }
+
+            if (!touched)
+            {
+                return;
             }
 
 #if UNITY_EDITOR
