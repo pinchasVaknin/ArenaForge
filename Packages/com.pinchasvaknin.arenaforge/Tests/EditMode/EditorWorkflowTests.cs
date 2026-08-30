@@ -29,6 +29,7 @@ namespace ArenaForge.Tests
         CatalogAsset _catalog;
         ArenaMap _map;
         ArenaEditCapture _capture;
+        TerrainData _ground;
 
         [SetUp]
         public void SetUp()
@@ -68,6 +69,12 @@ namespace ArenaForge.Tests
             if (_catalog != null)
             {
                 Object.DestroyImmediate(_catalog);
+            }
+
+            if (_ground != null)
+            {
+                Object.DestroyImmediate(_ground);
+                _ground = null;
             }
 
             AssetDatabase.DeleteAsset(TempFolder);
@@ -129,6 +136,107 @@ namespace ArenaForge.Tests
             Assert.That(layout.Grid.IsOnGrid(new Vec2(landed.Position.X, landed.Position.Z)), Is.True,
                 $"a dropped object came to rest at {landed.Position.X}, {landed.Position.Z}, " +
                 "which is not on the grid");
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The other half of a drop. A crate dragged up onto a first-floor slab lands on the slab
+        /// rather than at whatever height the mouse happened to let go at, and it is the catalog
+        /// that says the slab is a thing to stand on — the tag, not a Unity layer somebody has to
+        /// remember to set on every prefab they import.
+        /// </para>
+        /// <para>
+        /// The slab is added to the catalog and stood in the scene <em>after</em> the map is
+        /// generated, so it is scenery the drop finds rather than part of what was generated.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADroppedObjectComesToRestOnTheFloorUnderIt()
+        {
+            GenerateAndWatch();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaLayout layout = ArenaLayout.Build(_map.BuildParams());
+            Vec2 open = layout.Grid.Snap(new Vec2(cover.Pose.Position.X, cover.Pose.Position.Z));
+
+            CatalogAsset.Row floor = AddRow(
+                "structure/floor/slab_01", new[] { BuildingGenerator.FloorTileTag },
+                new Vector2(10f, 10f), 0.2f);
+
+            // A unit cube is modelled about its centre, so a slab 0.4 deep standing at 3 has its
+            // top face at 3.2.
+            Slab(floor, new Vector3(open.X, 3f, open.Y), new Vector3(10f, 0.4f, 10f));
+
+            MoveInScene(cover.StableId, CorePose.At(new CoreVec3(open.X, 3.5f, open.Y)));
+            Tick();
+
+            CorePose landed = PoseOf(_map, cover.StableId);
+            Assert.That(landed.Position.Y, Is.EqualTo(3.2f).Within(1e-3f),
+                "a crate dropped over a slab whose top is at 3.2 came to rest at " +
+                landed.Position.Y);
+        }
+
+        /// <remarks>
+        /// The ground is the other standing surface, and the one that is in every scene. Flat and
+        /// lifted off zero, so a crate that came to rest on it can only have got there by being
+        /// stood on it rather than by being left where the drag put it.
+        /// </remarks>
+        [Test]
+        public void ADroppedObjectComesToRestOnTheTerrain()
+        {
+            GenerateAndWatch();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaLayout layout = ArenaLayout.Build(_map.BuildParams());
+            Vec2 open = layout.Grid.Snap(new Vec2(cover.Pose.Position.X, cover.Pose.Position.Z));
+
+            FlatTerrainAt(1.5f);
+
+            MoveInScene(cover.StableId, CorePose.At(new CoreVec3(open.X, 4f, open.Y)));
+            Tick();
+
+            CorePose landed = PoseOf(_map, cover.StableId);
+            Assert.That(landed.Position.Y, Is.EqualTo(1.5f).Within(1e-3f),
+                "a crate dropped over ground at 1.5 came to rest at " + landed.Position.Y);
+        }
+
+        /// <remarks>
+        /// A crate dropped on a table goes through it to the floor, because a table is not
+        /// something the catalog says anything stands on. That is the rule working rather than the
+        /// rule failing: one tag decides, and everything the tag is not is scenery to fall past.
+        /// </remarks>
+        [Test]
+        public void ADroppedObjectFallsPastWhatIsNotAStandingSurface()
+        {
+            GenerateAndWatch();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaLayout layout = ArenaLayout.Build(_map.BuildParams());
+            Vec2 open = layout.Grid.Snap(new Vec2(cover.Pose.Position.X, cover.Pose.Position.Z));
+
+            CatalogAsset.Row floor = AddRow(
+                "structure/floor/slab_01", new[] { BuildingGenerator.FloorTileTag },
+                new Vector2(10f, 10f), 0.2f);
+
+            Slab(floor, new Vector3(open.X, 3f, open.Y), new Vector3(10f, 0.4f, 10f));
+
+            // The same shape in the same place two metres higher, tagged as cover — which is the
+            // whole of the difference between the two.
+            CatalogAsset.Row table = AddRow(
+                "cover/high/table_01", new[] { "cover", "cover/high" }, new Vector2(10f, 10f), 0.2f);
+
+            Slab(table, new Vector3(open.X, 5f, open.Y), new Vector3(10f, 0.4f, 10f));
+
+            MoveInScene(cover.StableId, CorePose.At(new CoreVec3(open.X, 6f, open.Y)));
+            Tick();
+
+            CorePose landed = PoseOf(_map, cover.StableId);
+            Assert.That(landed.Position.Y, Is.EqualTo(3.2f).Within(1e-3f),
+                "a crate dropped over a table at 5.2 with a slab at 3.2 under it came to rest at " +
+                landed.Position.Y);
         }
 
         // --- swapping the art under an object -------------------------------------------------
@@ -258,6 +366,44 @@ namespace ArenaForge.Tests
             cover.LogicalId == "cover/low/crate_wood_01"
                 ? "cover/high/barrier_concrete_01"
                 : "cover/low/crate_wood_01";
+
+        /// <summary>
+        /// Adds a row to the catalog after the map was generated, so nothing was generated off it.
+        /// </summary>
+        CatalogAsset.Row AddRow(string logicalId, string[] tags, Vector2 footprint, float height)
+        {
+            CatalogAsset.Row row = Row(logicalId, tags, footprint, height);
+            var rows = new List<CatalogAsset.Row>(_catalog.Rows) { row };
+            _catalog.SetRows(rows);
+            return row;
+        }
+
+        /// <summary>
+        /// Stands a row's prefab in the scene as a slab of the given size, outside the document.
+        /// </summary>
+        /// <remarks>
+        /// Parented to the map's own host rather than to the realisation root, so capture never
+        /// takes it for an instance it is watching. It is scenery a drop lands on, which is what a
+        /// floor slab standing beside the map is.
+        /// </remarks>
+        Transform Slab(CatalogAsset.Row row, Vector3 at, Vector3 size)
+        {
+            var instance = (GameObject)PrefabUtility.InstantiatePrefab(row.Prefab, _map.transform);
+            instance.transform.localPosition = at;
+            instance.transform.localScale = size;
+            return instance.transform;
+        }
+
+        /// <summary>Puts flat ground across the map at a height, and keeps it for teardown.</summary>
+        void FlatTerrainAt(float height)
+        {
+            _ground = new TerrainData { heightmapResolution = 33 };
+            _ground.size = new Vector3(128f, 8f, 128f);
+
+            GameObject terrain = Terrain.CreateTerrainGameObject(_ground);
+            terrain.transform.SetParent(_map.transform, false);
+            terrain.transform.localPosition = new Vector3(-64f, height, -64f);
+        }
 
         static PlacedObject FirstCover(WorldDoc doc)
         {

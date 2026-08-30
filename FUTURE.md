@@ -575,3 +575,10 @@ a transcendental in the middle of a deterministic placement is a byte-identical 
 a corner nobody has complained about. Shutting each run against its own polyline instead is the other
 route, and its collinear stretches sit exactly on the boundary of the test, which is the kind of tie
 `WallRun.CornerSlack` exists because nobody wants to decide with a float.
+
+**Nothing can be left hanging in the air.** A dropped object falls to the first standing surface
+under it, however far down that is, so a lamp meant to hang from a ceiling or a walkway meant to
+span a gap comes back to the floor the moment it is nudged. The alternative that was considered and
+rejected is snapping only what was already on the ground, which costs the case the feature is for —
+lifting a crate onto a second floor. What would cover both is a way to say *this one is airborne*,
+either a modifier held during the drag or a flag on the override, and neither is there.

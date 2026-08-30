@@ -374,8 +374,8 @@ namespace ArenaForge.Editor
         }
 
         /// <summary>
-        /// Pulls a dropped object flush with the edges it came to rest beside, and returns the pose
-        /// it ends up at.
+        /// Pulls a dropped object flush with the edges it came to rest beside, stands it on what is
+        /// under it, and returns the pose it ends up at.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -403,6 +403,11 @@ namespace ArenaForge.Editor
         /// placement verdict will say so. Art whose footprint does not divide the cell cannot be
         /// both flush with its neighbour and on the grid; the tool shows the conflict rather than
         /// choosing for you. The art it ships is metre-based, where the two agree.
+        /// </para>
+        /// <para>
+        /// <strong>The height is settled separately and afterwards</strong>, by <see cref="Standing"/>
+        /// — the two snaps do not compete, because one decides where on the ground the object goes
+        /// and the other decides which ground that is.
         /// </para>
         /// </remarks>
         CorePose Snapped(WorldDoc doc, Watched watched, CorePose current)
@@ -450,13 +455,20 @@ namespace ArenaForge.Editor
                 ? new Vec2(current.Position.X + offset.X, current.Position.Z + offset.Y)
                 : grid.Snap(new Vec2(current.Position.X, current.Position.Z));
 
-            if (Near(placed.X, current.Position.X) && Near(placed.Y, current.Position.Z))
+            // Downwards after sideways, and sampled where the object ends up rather than where the
+            // mouse let go: the horizontal snap can carry a piece off the slab it was dropped over,
+            // and the height that matters is the height under where it lands.
+            float standing = Standing(asset, entry, watched, placed, current);
+
+            if (Near(placed.X, current.Position.X) &&
+                Near(placed.Y, current.Position.Z) &&
+                Near(standing, current.Position.Y))
             {
                 return current;
             }
 
             var snapped = new CorePose(
-                new Vec3(placed.X, current.Position.Y, placed.Y),
+                new Vec3(placed.X, standing, placed.Y),
                 current.Rotation,
                 current.Scale,
                 current.VerticalScale);
@@ -465,6 +477,134 @@ namespace ArenaForge.Editor
             watched.Instance.localPosition = CoreConvert.ToUnity(snapped.Position);
 
             return snapped;
+        }
+
+        /// <summary>
+        /// The height a dropped object comes to rest at: the first standing surface under it, plus
+        /// whatever the art reaches below its own pivot. Its current height if there is none.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <strong>A standing surface is one the catalog says is one.</strong> Floor slabs carry
+        /// <see cref="BuildingGenerator.FloorTileTag"/>, and the Unity terrain is the other. A
+        /// Unity layer is the usual way to ask a question like this and would have put the answer
+        /// in two places — the catalog, which already says what every piece of art is, and a layer
+        /// assignment somebody has to remember to make on each prefab they import.
+        /// </para>
+        /// <para>
+        /// <strong>A table is not a standing surface</strong>, so a crate dropped onto one carries
+        /// on down to the floor beneath it. That is the same rule rather than an exception to it:
+        /// the catalog decides, and what the catalog calls a floor is what a crate stands on.
+        /// </para>
+        /// <para>
+        /// The ray starts at the top of the art and not at its pivot, because a drop that ends with
+        /// the object half sunk into the slab is the ordinary case — that is where the mouse leaves
+        /// it — and a ray fired from inside a slab passes under it and finds the ground instead.
+        /// Triggers are ignored: <see cref="MergeToPrefab"/> puts one round a merged group as a
+        /// measurement of it, and a measurement is not something anything stands on.
+        /// </para>
+        /// <para>
+        /// <strong>It falls as far as it has to.</strong> An object let go in mid-air lands on what
+        /// is under it rather than hanging where the mouse dropped it, which is what this is for.
+        /// The cost is that nothing can be left in the air on purpose; see FUTURE.md.
+        /// </para>
+        /// </remarks>
+        float Standing(
+            CatalogAsset asset, CatalogEntry entry, Watched watched, Vec2 at, CorePose current)
+        {
+            Transform space = _map.Realizer.Root;
+
+            // The factor the realiser wrote onto Y, which is what the art's reach above and below
+            // its own pivot is multiplied by.
+            float vertical = current.Scale * current.VerticalScale;
+
+            Vector3 from = space.TransformPoint(
+                new Vector3(at.X, current.Position.Y + entry.Height * vertical, at.Y));
+
+            // The instance was moved by writing a transform rather than by simulating, so without
+            // this the physics scene is still answering for where it used to be.
+            Physics.SyncTransforms();
+
+            RaycastHit[] hits = Physics.RaycastAll(
+                from,
+                Vector3.down,
+                Mathf.Infinity,
+                Physics.AllLayers,
+                QueryTriggerInteraction.Ignore);
+
+            bool found = false;
+            float nearest = 0f;
+            float surface = 0f;
+
+            for (int i = 0; i < hits.Length; i++)
+            {
+                RaycastHit hit = hits[i];
+
+                if (hit.transform.IsChildOf(watched.Instance) ||
+                    !IsStandingSurface(asset, hit.collider))
+                {
+                    continue;
+                }
+
+                if (found && hit.distance >= nearest)
+                {
+                    continue;
+                }
+
+                found = true;
+                nearest = hit.distance;
+                surface = space.InverseTransformPoint(hit.point).y;
+            }
+
+            return found ? surface + entry.BaseOffset * vertical : current.Position.Y;
+        }
+
+        /// <summary>Whether something the ray hit is a surface an object may stand on.</summary>
+        /// <remarks>
+        /// The way back from a collider to a catalog row is the prefab it is an instance of, rather
+        /// than the <see cref="ArenaObjectRef"/> the realiser attaches. A floor slab standing in the
+        /// scene beside the map belongs to a building's document and not to the map's, and there is
+        /// nothing here to resolve its id against — whereas the art it was made from is in the same
+        /// catalog either way, and the art is what the question is about.
+        /// </remarks>
+        static bool IsStandingSurface(CatalogAsset asset, Collider collider)
+        {
+            if (collider is TerrainCollider)
+            {
+                return true;
+            }
+
+            GameObject instance = PrefabUtility.GetNearestPrefabInstanceRoot(collider.gameObject);
+            if (instance == null)
+            {
+                return false;
+            }
+
+            GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource<GameObject>(instance);
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            IReadOnlyList<CatalogAsset.Row> rows = asset.Rows;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Prefab != prefab)
+                {
+                    continue;
+                }
+
+                string[] tags = rows[i].Tags;
+                for (int t = 0; tags != null && t < tags.Length; t++)
+                {
+                    if (tags[t] == BuildingGenerator.FloorTileTag)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
         }
 
         /// <summary>Two coordinates the same to within a tenth of a millimetre.</summary>

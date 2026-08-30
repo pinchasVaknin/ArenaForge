@@ -193,6 +193,38 @@ All notable changes to this package are documented here. The format follows
   lets the placement verdict report the conflict rather than choosing quietly; the art it ships is
   metre-based, where the two agree.
 
+- **A dropped object is stood on what is under it.** `ArenaEditCapture.Standing`, in the same pass
+  as the edge snap and after it: a crate dragged up onto a first-floor slab lands on the slab rather
+  than at whatever height the mouse let go at, and one dragged off the end of it falls to the ground.
+  The height is sampled where the object ends up rather than where it was dropped, because the
+  horizontal snap can carry a piece off the slab it was let go over.
+
+  **A standing surface is one the catalog says is one** — `BuildingGenerator.FloorTileTag`, plus the
+  Unity terrain. A Unity layer is the usual way to ask this and would have put the answer in two
+  places: the catalog, which already says what every piece of art is, and a layer assignment somebody
+  has to remember to make on each prefab they import. So a table is not a standing surface and a
+  crate dropped on one carries on down to the floor, which is the rule working rather than an
+  exception to it.
+
+  **The way back from a collider to its row is the prefab**, not the `ArenaObjectRef` the realiser
+  attaches. A floor slab standing in the scene beside the map belongs to a building's document and
+  not to the map's, and there is nothing in capture to resolve its id against — while the art it was
+  made from is in the same catalog either way, which is what the question is actually about.
+
+  **The ray starts at the top of the art and not at its pivot.** A drop that ends with the object
+  half sunk into the slab is the ordinary case, that being where the mouse leaves it, and a ray fired
+  from inside a slab passes under it and finds the ground instead. Triggers are ignored: a merged
+  group carries one as a measurement of itself, and a measurement is not something anything stands
+  on.
+
+  **The conservative rule was rejected deliberately.** Snapping only an object that was already on
+  the ground would never move anything unexpectedly, and would also make it impossible to lift a
+  crate onto a second floor — which is an edit a person plainly means to make. So it falls as far as
+  it has to, and the cost is that nothing can be left hanging in the air on purpose. That cost is in
+  FUTURE.md.
+
+  This is the first `Physics` query in the project.
+
 - **`SwapAsset` has a control.** The op has resolved and round-tripped since the document model
   was written and nothing ever produced one. Now a dropdown and a `Swap`
   button on the overlay, beside the selection line: pick another catalog entry for the object you
