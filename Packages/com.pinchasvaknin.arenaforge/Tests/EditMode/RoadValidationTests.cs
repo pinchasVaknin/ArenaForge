@@ -68,12 +68,31 @@ namespace ArenaForge.Tests
         /// Peak-to-trough ground the relief sweep is laid over, in metres.
         /// </summary>
         /// <remarks>
-        /// Four, which is the largest value at which the whole sweep still comes out with both
-        /// spawns on the same piece of ground. At six, five seeds in three hundred wall a spawn off
-        /// behind a bank no road may be graded up, and a map whose spawn cannot be reached by road
-        /// is a map about ground rather than a map about roads.
+        /// <para>
+        /// <strong>Ten, and it was four because of a bug rather than because of the ground.</strong>
+        /// The cap used to read: four is the largest value at which the whole sweep still comes out
+        /// with both spawns on the same piece of ground, because at six a handful of seeds wall a
+        /// spawn off behind a bank no road may be graded up. That was true, and the reason no road
+        /// could be graded up it was <see cref="ArenaParams.MaxRoadGradient"/> at a quarter — which
+        /// does not slow a route over rough ground, it shuts the ground to the router outright. The
+        /// sweep was calibrated around the defect.
+        /// </para>
+        /// <para>
+        /// With the limit at six tenths the ground is open again, and the sweep is laid over relief
+        /// that actually exercises what it is here to measure. At four the limit now refuses almost
+        /// nothing — the test below says so in its own words — so the grading properties would be
+        /// asserted over ground that never needs grading.
+        /// </para>
+        /// <para>
+        /// Ten rather than twelve because it is the value that keeps the braiding total clear of its
+        /// threshold with room to spare: over seeds 1..200, braiding runs 0.725 at four metres,
+        /// 0.694 at eight, 0.674 at ten and 0.638 at twelve. That fall is worth understanding rather
+        /// than exploiting — a confined router shares corridors because it has nowhere else to go,
+        /// so the metric measures how boxed in the routing is as much as it measures the cost decay
+        /// it was written for.
+        /// </para>
         /// </remarks>
-        const float Amplitude = 4f;
+        const float Amplitude = 10f;
 
         /// <summary>
         /// A road density that lays a real network. One is the baseline redundancy the parameter

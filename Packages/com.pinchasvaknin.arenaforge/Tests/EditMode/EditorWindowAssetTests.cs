@@ -45,7 +45,7 @@ namespace ArenaForge.Tests
             foreach (string name in new[]
             {
                 "target-slot", "empty-state", "body", "seed-slot", "playfield-slot", "metric-rows",
-                "override-rows", "orphan-rows", "catalog-rows", "ramp", "status", "report-verdict",
+                "override-rows", "orphan-rows", "catalog-rows", "ramp", "status", "report-verdict", "report-caveat",
                 "placement-summary", "exposure-summary", "override-empty", "heatmap",
                 "overrides-foldout", "orphans-foldout", "catalog-foldout", "show-in-scene",
                 "lane-count", "grid-size", "structure-density", "cover-density", "low-high-ratio",

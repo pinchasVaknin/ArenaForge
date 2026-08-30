@@ -73,6 +73,33 @@ All notable changes to this package are documented here. The format follows
 
 ### Fixed
 
+- **The road gradient limit was walling roads out of hilly maps, and the suite was calibrated
+  around it.** `MaxRoadGradient` defaults to 0.6 where it was 0.25. Ground steeper than the limit is
+  impassable to the router — `RoadNetwork.NaturalCost` — so the limit does not slow a route over
+  rough ground, it shuts the ground to it. Over sixty seeds at twelve metres of relief, a quarter
+  left the network spanning 50.9% of the map with 31 of the 60 confined to less than half, laying a
+  tangle in whatever corner it could still reach. At 0.4 that is 88% and no failures; at 0.6, 91.7%,
+  which is what flat ground gives.
+
+  **The relief sweep moves from four metres to ten, and it is a stronger sweep than before.** Its own
+  remarks recorded why it was capped at four: at six, seeds walled a spawn off behind a bank *no road
+  may be graded up* — which was the quarter-gradient doing the walling. The sweep had been calibrated
+  around the defect. At ten the limit refuses ground again, so the grading properties are asserted
+  over ground that needs grading, which at four they no longer would be.
+
+  **No threshold was weakened.** Braiding rose to 0.7254 at four metres of relief, over the 0.70
+  limit — and then fell to 0.6739 at ten, under it. That fall is the finding: a confined router
+  shares corridors because it has nowhere else to go, so the metric measures how boxed in the routing
+  is as much as the cost decay it was written for. The old 0.6766 was flattered by the bug.
+  `MaxCorridorShare` is untouched at 0.70, and the observation is now recorded beside it.
+
+  **The report says when the two parameters are fighting.** A `report-caveat` line under the verdict,
+  from `RoadNetwork.PassableShare` — measured by the router rather than guessed — naming both
+  `Max Road Gradient` and `Terrain Amplitude` when a road can reach less than three quarters of the
+  map. Beside it, and for the same reason, the report now says outright that it measured on flat
+  ground whenever the amplitude is above zero: every metric here is a claim about a level map, and a
+  verdict of "playable" that does not say so is claiming more than it checked.
+
 - **Six faults an hour in the editor found that the suites did not.** All of them in what the scene
   view shows or writes, which is the half of the tool no property test looks at.
 

@@ -134,14 +134,30 @@ namespace ArenaForge.Core
 
         /// <summary>Steepest slope a road may be graded to, as rise over run.</summary>
         /// <remarks>
+        /// <para>
         /// Rise over run rather than degrees: a ratio is two heights and a distance divided, and
         /// an angle is a call into trigonometry, which is not bit-identical across runtimes — the
-        /// same argument <see cref="YawStep"/> makes. The default of 0.25 is a one-in-four climb,
-        /// steep for a road and gentle beside the slopes <see cref="TerrainAmplitude"/> can
-        /// raise, which is the point of having the limit at all.
+        /// same argument <see cref="YawStep"/> makes.
+        /// </para>
+        /// <para>
+        /// <strong>Six in ten, and the number is a measurement rather than a taste.</strong> It was
+        /// a quarter, which is a gentle road and far too gentle a filter: a cell steeper than this
+        /// is impassable to the router — see <c>RoadNetwork.NaturalCost</c> — so the limit does not
+        /// slow a route down over rough ground, it walls the route out of it. Over sixty seeds at
+        /// twelve metres of relief, a quarter left the network spanning half the map, with 31 of the
+        /// 60 confined to less than half and the whole thing scribbling in whatever corner it could
+        /// still reach. At four tenths that is 88% of the map and no failures; at six tenths, 91.7%,
+        /// which is the same span flat ground gives. Six is chosen over four because it is the one
+        /// that stops being the binding constraint rather than the one that just clears the bar.
+        /// </para>
+        /// <para>
+        /// It still bites where it should: a route is priced by how steep it is all the way up to
+        /// the limit, so a road prefers the gentle way round long before it is forbidden the steep
+        /// one. What changed is that ground the map is made of is no longer off the map.
+        /// </para>
         /// </remarks>
         [JsonProperty("maxRoadGradient", Order = 13)]
-        public float MaxRoadGradient { get; set; } = 0.25f;
+        public float MaxRoadGradient { get; set; } = 0.6f;
 
         /// <summary>Creates an independent copy.</summary>
         public ArenaParams Clone() => new ArenaParams

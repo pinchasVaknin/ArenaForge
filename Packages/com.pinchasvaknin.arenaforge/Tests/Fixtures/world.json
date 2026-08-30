@@ -18,7 +18,7 @@
     "roadDensity": 0.0,
     "arteryWidth": 4.0,
     "pathWidth": 2.0,
-    "maxRoadGradient": 0.25
+    "maxRoadGradient": 0.6
   },
   "generatedObjects": [
     {

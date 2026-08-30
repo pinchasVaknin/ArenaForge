@@ -88,6 +88,7 @@ namespace ArenaForge.Editor
         Image _heatmapImage;
         Label _status;
         Label _verdict;
+        Label _caveat;
         Label _placementSummary;
         Label _exposureSummary;
         Label _overrideEmpty;
@@ -235,6 +236,7 @@ namespace ArenaForge.Editor
             _body = rootVisualElement.Q<VisualElement>("body");
             _status = rootVisualElement.Q<Label>("status");
             _verdict = rootVisualElement.Q<Label>("report-verdict");
+            _caveat = rootVisualElement.Q<Label>("report-caveat");
             _metricRows = rootVisualElement.Q<VisualElement>("metric-rows");
             _placementSummary = rootVisualElement.Q<Label>("placement-summary");
             _exposureSummary = rootVisualElement.Q<Label>("exposure-summary");
@@ -638,6 +640,7 @@ namespace ArenaForge.Editor
                 _verdict.RemoveFromClassList("af-fail");
                 _placementSummary.text = string.Empty;
                 _exposureSummary.text = string.Empty;
+                _caveat.text = string.Empty;
                 _heatmapImage.image = null;
                 return;
             }
@@ -647,6 +650,7 @@ namespace ArenaForge.Editor
                 : $"Not playable — {_report.Failures.Count} metric(s) out of threshold";
             _verdict.EnableInClassList("af-pass", _report.IsPlayable);
             _verdict.EnableInClassList("af-fail", !_report.IsPlayable);
+            _caveat.text = Caveats();
 
             for (int i = 0; i < _report.Readings.Count; i++)
             {
@@ -667,6 +671,68 @@ namespace ArenaForge.Editor
 
             _heatmapImage.image = _heatmapTexture;
         }
+
+        /// <summary>
+        /// What the verdict above does not cover, in one line, or nothing when it covers everything.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <strong>Relief is the one that matters.</strong> Every metric here is measured on the
+        /// flat: occluders are rectangles on the XZ plane and exposure is sampled at one eye height
+        /// on the ground, so a sightline that runs through a hill is reported clear and a slope is
+        /// not something connectivity knows about. A map with no relief is measured exactly; a map
+        /// with relief is measured as though it had none, and saying "playable" without saying that
+        /// is the report claiming more than it checked.
+        /// </para>
+        /// <para>
+        /// The road warning is the other half, and it names both parameters because neither is wrong
+        /// on its own. Ground steeper than <c>MaxRoadGradient</c> is closed to the router, so a
+        /// limit set low against a lively amplitude leaves it a corner of the map to work in — and
+        /// the network it lays there is a tangle rather than a road across the arena. The share is
+        /// measured by the router itself, so this reports rather than guesses.
+        /// </para>
+        /// </remarks>
+        string Caveats()
+        {
+            if (_map == null)
+            {
+                return string.Empty;
+            }
+
+            var lines = new List<string>(2);
+
+            if (_map.TerrainAmplitude > 0f)
+            {
+                lines.Add(
+                    "Measured on flat ground: relief is not in the visibility model, so a sightline " +
+                    "through a hill reads as clear.");
+            }
+
+            RoadNetwork roads = _map.Roads;
+            if (roads != null && roads.PassableShare < RoadReachWarning)
+            {
+                lines.Add(string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Roads can reach {0:0.#}% of the map: Max Road Gradient ({1:0.##}) is shutting " +
+                    "out ground Terrain Amplitude ({2:0.#} m) is raising.",
+                    roads.PassableShare * 100f, _map.MaxRoadGradient, _map.TerrainAmplitude));
+            }
+
+            return string.Join("  ", lines);
+        }
+
+        /// <summary>
+        /// How little of the map a road may cross before the report says the two parameters are
+        /// fighting.
+        /// </summary>
+        /// <remarks>
+        /// Three quarters, from the measurement that prompted it: at twelve metres of relief and a
+        /// gradient limit of a quarter, the network spanned half the map and scribbled in a corner.
+        /// A map with buildings and spawns on it never has all of its ground open to a road anyway,
+        /// so the threshold is set where the loss stops being the map's own furniture and starts
+        /// being the ground itself.
+        /// </remarks>
+        const float RoadReachWarning = 0.75f;
 
         static VisualElement MetricRow(MetricReading reading)
         {

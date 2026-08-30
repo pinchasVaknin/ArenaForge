@@ -89,8 +89,9 @@ namespace ArenaForge.Unity
 
         [SerializeField]
         [Min(0.01f)]
-        [Tooltip("Steepest slope a road may be graded to, as rise over run.")]
-        float _maxRoadGradient = 0.25f;
+        [Tooltip("Steepest slope a road may be graded to, as rise over run. Ground steeper than "
+            + "this is closed to the router, so lowering it far can wall roads out of a hilly map.")]
+        float _maxRoadGradient = 0.6f;
 
         [SerializeField]
         [Tooltip("Optional. The terrain the generated ground is written into.")]

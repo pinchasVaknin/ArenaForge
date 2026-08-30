@@ -340,7 +340,8 @@ namespace ArenaForge.Core
             IReadOnlyList<Rect2> corridors,
             float junctionRadius,
             float corridorLength,
-            float unbraidedLength)
+            float unbraidedLength,
+            float passableShare)
         {
             _junctions = junctions;
             _segments = segments;
@@ -348,7 +349,21 @@ namespace ArenaForge.Core
             _junctionRadius = junctionRadius;
             CorridorLength = corridorLength;
             UnbraidedLength = unbraidedLength;
+            PassableShare = passableShare;
         }
+
+        /// <summary>
+        /// Share of the playfield a road may cross at all, from nothing to one.
+        /// </summary>
+        /// <remarks>
+        /// The one number that explains a network which came out wrong. Ground steeper than
+        /// <see cref="ArenaParams.MaxRoadGradient"/> is closed to the router outright, so a limit
+        /// set low against a lively <see cref="ArenaParams.TerrainAmplitude"/> leaves it a fraction
+        /// of the map to work in — and what it lays there is a tangle in whatever corner it can
+        /// still reach rather than a road across the arena. Neither parameter says it is fighting
+        /// the other, and this is what lets a caller say so.
+        /// </remarks>
+        public float PassableShare { get; }
 
         /// <summary>The places the network was built to reach: portals, then spawns, then attachments.</summary>
         public IReadOnlyList<RoadJunction> Junctions => _junctions;
@@ -469,7 +484,7 @@ namespace ArenaForge.Core
 
             if (!(parameters.RoadDensity > 0f))
             {
-                return new RoadNetwork(NoJunctions, NoSegments, NoCorridors, 0f, 0f, 0f);
+                return new RoadNetwork(NoJunctions, NoSegments, NoCorridors, 0f, 0f, 0f, 1f);
             }
 
             Validate(parameters);
@@ -514,7 +529,7 @@ namespace ArenaForge.Core
 
             return new RoadNetwork(
                 junctions, segments, Reserve(segments), junctionRadius,
-                router.CorridorLength, router.UnbraidedLength);
+                router.CorridorLength, router.UnbraidedLength, router.PassableShare);
         }
 
         /// <summary>
@@ -1910,13 +1925,22 @@ namespace ArenaForge.Core
             }
 
             _minCellCost = Impassable;
+            var open = 0;
             for (int cell = 0; cell < cells; cell++)
             {
-                if (_cost[cell] != Impassable && _cost[cell] < _minCellCost)
+                if (_cost[cell] == Impassable)
+                {
+                    continue;
+                }
+
+                open++;
+                if (_cost[cell] < _minCellCost)
                 {
                     _minCellCost = _cost[cell];
                 }
             }
+
+            PassableShare = cells > 0 ? (float)open / cells : 0f;
 
             if (_minCellCost == Impassable)
             {
@@ -1976,6 +2000,18 @@ namespace ArenaForge.Core
         /// function of the grid alone.
         /// </para>
         /// </remarks>
+        /// <summary>Share of the playfield's cells a road may cross at all, from nothing to one.</summary>
+        /// <remarks>
+        /// Recorded rather than derived on demand because it is the one number that explains a
+        /// network that came out wrong. A route is walled out of ground steeper than
+        /// <see cref="ArenaParams.MaxRoadGradient"/>, so a limit set low against a lively
+        /// <see cref="ArenaParams.TerrainAmplitude"/> leaves the router a fraction of the map to
+        /// work in — and what it lays there is a tangle in a corner rather than a road across the
+        /// arena. Nothing in either parameter says it is fighting the other; this is what lets a
+        /// caller say so.
+        /// </remarks>
+        public float PassableShare { get; private set; }
+
         public int NearestPassableCell(Vec2 point)
         {
             int x = (int)MathF.Floor((point.X - _originX) / _cellSize);

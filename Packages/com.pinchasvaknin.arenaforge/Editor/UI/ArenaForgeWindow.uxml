@@ -41,6 +41,7 @@
 
             <ui:Foldout name="report-foldout" text="Validation" value="true" class="af-section">
                 <ui:Label name="report-verdict" class="af-verdict" />
+                <ui:Label name="report-caveat" class="af-overlay-line" />
                 <ui:VisualElement name="metric-rows" />
                 <ui:Label name="placement-summary" class="af-help" />
             </ui:Foldout>

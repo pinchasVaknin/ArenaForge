@@ -100,7 +100,7 @@ namespace ArenaForge.Tests
             Assert.That(restored.RoadDensity, Is.EqualTo(0f), "roadDensity");
             Assert.That(restored.ArteryWidth, Is.EqualTo(4f), "arteryWidth");
             Assert.That(restored.PathWidth, Is.EqualTo(2f), "pathWidth");
-            Assert.That(restored.MaxRoadGradient, Is.EqualTo(0.25f), "maxRoadGradient");
+            Assert.That(restored.MaxRoadGradient, Is.EqualTo(0.6f), "maxRoadGradient");
         }
 
         [Test]
