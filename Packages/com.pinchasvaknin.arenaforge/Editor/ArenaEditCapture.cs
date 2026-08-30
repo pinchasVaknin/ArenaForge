@@ -169,8 +169,15 @@ namespace ArenaForge.Editor
                 }
 
                 Register(ref registered, $"ArenaForge: move {watched.StableId}");
+
+                // Snapped at rest rather than during the drag: one gesture makes one override, and
+                // an object that jumped under the cursor while it was still being held would be
+                // fighting the hand holding it.
+                current = Snapped(doc, watched, current);
+
                 RecordMove(doc, watched.StableId, current);
                 watched.Base = current;
+                watched.Last = current;
             }
 
             if (registered)
@@ -364,6 +371,116 @@ namespace ArenaForge.Editor
             }
 
             return copy;
+        }
+
+        /// <summary>
+        /// Pulls a dropped object flush with the edges it came to rest beside, and returns the pose
+        /// it ends up at.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The arithmetic is <see cref="EdgeSnap.TryFlush"/>; what this adds is what it is measured
+        /// against. Everything else the resolved map holds, minus the object being moved and minus
+        /// props standing on sockets — a bottle on a crate offers an edge that is not on the ground
+        /// and is not one a wall should line up with.
+        /// </para>
+        /// <para>
+        /// The transform is written as well as the document, because the two have to agree before
+        /// the next tick reads them: a document snapped and an instance left where the mouse
+        /// dropped it is a difference the next pass would faithfully record as a second edit.
+        /// Inside the undo group <see cref="Register"/> just opened, so the snap and the move come
+        /// back together on one Ctrl+Z along with Unity's own transform entry.
+        /// </para>
+        /// <para>
+        /// <strong>It can put an object off the placement grid</strong>, and the overlay's placement
+        /// verdict will say so. Two snaps that disagree is the honest state of things — art whose
+        /// footprint does not divide the cell cannot be both flush with its neighbour and on the
+        /// grid — and the tool shows the conflict rather than choosing for you. The art this tool
+        /// ships is metre-based, where the two agree.
+        /// </para>
+        /// </remarks>
+        CorePose Snapped(WorldDoc doc, Watched watched, CorePose current)
+        {
+            CatalogAsset asset = _map.Realizer != null ? _map.Realizer.Catalog : null;
+            if (asset == null)
+            {
+                return current;
+            }
+
+            Catalog catalog = asset.ToCatalog();
+            CatalogEntry entry = EntryOf(catalog, doc, watched.StableId);
+            if (entry == null)
+            {
+                return current;
+            }
+
+            var neighbours = new List<Rect2>();
+            ResolvedWorld resolved = doc.Resolve();
+
+            for (int i = 0; i < resolved.Objects.Count; i++)
+            {
+                PlacedObject other = resolved.Objects[i];
+                if (other.StableId == watched.StableId || CoverPlacer.IsSocketProp(other.StableId))
+                {
+                    continue;
+                }
+
+                CatalogEntry row = catalog.Find(other.LogicalId);
+                if (row != null)
+                {
+                    neighbours.Add(other.Pose.Bounds(row.Footprint));
+                }
+            }
+
+            if (!EdgeSnap.TryFlush(
+                    current.Bounds(entry.Footprint), neighbours, SnapReach(), out Vec2 offset))
+            {
+                return current;
+            }
+
+            var snapped = new CorePose(
+                new Vec3(
+                    current.Position.X + offset.X,
+                    current.Position.Y,
+                    current.Position.Z + offset.Y),
+                current.Rotation,
+                current.Scale,
+                current.VerticalScale);
+
+            Undo.RecordObject(watched.Instance, "ArenaForge: snap");
+            watched.Instance.localPosition = CoreConvert.ToUnity(snapped.Position);
+
+            return snapped;
+        }
+
+        /// <summary>How far an edge may pull, in metres: half a cell of the map's own grid.</summary>
+        /// <remarks>
+        /// Derived rather than picked. The grid is the quantum this map is arranged on, so half a
+        /// cell is the distance inside which you have plainly aimed at the neighbour rather than at
+        /// the gap beside it — and it cannot pull an object past the cell it was dropped in.
+        /// </remarks>
+        float SnapReach() => ArenaLayout.Build(_map.BuildParams()).Grid.CellSize * 0.5f;
+
+        static CatalogEntry EntryOf(Catalog catalog, WorldDoc doc, string stableId)
+        {
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                if (doc.GeneratedObjects[i].StableId == stableId)
+                {
+                    return catalog.Find(doc.GeneratedObjects[i].LogicalId);
+                }
+            }
+
+            for (int i = 0; i < doc.Overrides.Count; i++)
+            {
+                EditOverride edit = doc.Overrides[i];
+                if (edit.Op == OverrideOp.Add && edit.TargetId == stableId)
+                {
+                    return catalog.Find(edit.LogicalId);
+                }
+            }
+
+            return null;
         }
 
         void Register(ref bool registered, string name)

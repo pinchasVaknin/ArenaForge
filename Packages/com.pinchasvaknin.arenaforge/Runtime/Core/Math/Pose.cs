@@ -97,6 +97,37 @@ namespace ArenaForge.Core
             new Vec3(local.X * Scale, local.Y * Scale * VerticalScale, local.Z * Scale));
 
         /// <summary>
+        /// The axis-aligned world bounds this pose gives a footprint expressed in its local space.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The box round the oriented rectangle rather than the rectangle itself, which is the
+        /// conservative answer and the one every caller wants: a cell a rotated barrier clips is
+        /// floor that plays as blocked, ground a rule keeps clear of is ground kept clear of the
+        /// whole box, and an edge a drag snaps to is the edge you can see.
+        /// </para>
+        /// <para>
+        /// Here rather than in any one of them because three had written it out: the analyser's
+        /// walkable set, the placement rules and the editor's edge snapping. The arithmetic is
+        /// unchanged from the copies it replaces, corner for corner and comparison for comparison,
+        /// so no map moves by a float.
+        /// </para>
+        /// </remarks>
+        public Rect2 Bounds(Rect2 local)
+        {
+            Vec3 a = TransformPoint(new Vec3(local.MinX, 0f, local.MinZ));
+            Vec3 b = TransformPoint(new Vec3(local.MaxX, 0f, local.MinZ));
+            Vec3 c = TransformPoint(new Vec3(local.MaxX, 0f, local.MaxZ));
+            Vec3 d = TransformPoint(new Vec3(local.MinX, 0f, local.MaxZ));
+
+            return new Rect2(
+                MathF.Min(MathF.Min(a.X, b.X), MathF.Min(c.X, d.X)),
+                MathF.Min(MathF.Min(a.Z, b.Z), MathF.Min(c.Z, d.Z)),
+                MathF.Max(MathF.Max(a.X, b.X), MathF.Max(c.X, d.X)),
+                MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
+        }
+
+        /// <summary>
         /// Composes a child pose expressed in this pose's local space into world space. Used to
         /// resolve a catalog socket against the pose of the object carrying it.
         /// </summary>

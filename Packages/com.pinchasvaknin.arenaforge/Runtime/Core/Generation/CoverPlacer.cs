@@ -617,7 +617,7 @@ namespace ArenaForge.Core
                 return false;
             }
 
-            footprint = WorldFootprint(subject.Pose, entry.Footprint);
+            footprint = subject.Pose.Bounds(entry.Footprint);
             var constraints = new ConstraintSet(layout, Rules(layout, LaneOf(layout, footprint.Center)));
 
             for (int i = 0; i < doc.GeneratedObjects.Count; i++)
@@ -638,7 +638,7 @@ namespace ArenaForge.Core
                 constraints.Commit(new Placement(
                     other.LogicalId,
                     other.Pose,
-                    WorldFootprint(other.Pose, row.Footprint),
+                    other.Pose.Bounds(row.Footprint),
                     other.Tags));
             }
 
@@ -685,25 +685,6 @@ namespace ArenaForge.Core
             }
 
             return nearest;
-        }
-
-        /// <summary>The axis-aligned world bounds a pose gives a local footprint.</summary>
-        /// <remarks>
-        /// The box round the oriented rectangle, which is what a <see cref="Placement"/> carries
-        /// and what every rule here measures against.
-        /// </remarks>
-        static Rect2 WorldFootprint(Pose pose, Rect2 local)
-        {
-            Vec3 a = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MinZ));
-            Vec3 b = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MinZ));
-            Vec3 c = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MaxZ));
-            Vec3 d = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MaxZ));
-
-            return new Rect2(
-                MathF.Min(MathF.Min(a.X, b.X), MathF.Min(c.X, d.X)),
-                MathF.Min(MathF.Min(a.Z, b.Z), MathF.Min(c.Z, d.Z)),
-                MathF.Max(MathF.Max(a.X, b.X), MathF.Max(c.X, d.X)),
-                MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
         }
 
         static ConstraintSet BuildConstraints(

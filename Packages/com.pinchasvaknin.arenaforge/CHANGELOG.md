@@ -8,6 +8,12 @@ All notable changes to this package are documented here. The format follows
 
 ### Changed
 
+- **`Pose.Bounds` replaces three copies of the same box.** The analyser's walkable set, the
+  placement rules and now the edge snap each measured the world bounds a pose gives a footprint.
+  The arithmetic is unchanged from the copies it replaces, corner for corner and comparison for
+  comparison, and the full suite — every recorded digest and both thousand-seed sweeps — is
+  unmoved by it.
+
 - **A run closes with the longest piece that fits, so a catalog can carry length variants.**
   `WallRun.CloseGaps` read the shortest piece in the palette once and tiled every bare stretch with
   it; it now chooses per step, through `WallRun.LongestThatFits`. A folder holding a thirty-metre
@@ -43,6 +49,32 @@ All notable changes to this package are documented here. The format follows
   the editor's own runtime, the way its remarks require, and those remarks now say why it moved.
 
 ### Added
+
+- **A dropped object is pulled flush with the edges it landed beside.** `EdgeSnap.TryFlush` in Core,
+  called from `ArenaEditCapture` at the moment an instance comes to rest: a wall dropped with a
+  seam after the one before it closes the seam, and one dropped a little sideways of it comes back
+  in line rather than stepped.
+
+  **Each neighbour decides which axis the run goes along** — whichever of the two the footprints
+  share least of. There the offsets butt them together; across it they line the edges up. The
+  obvious shape, letting every offer compete on both axes and taking the nearest edge, is wrong and
+  the test that says so is `AWallOffsetOnBothAxesComesBackAsAContinuationOfTheRun`: a wall dropped
+  slightly sideways is *nearer* to sitting alongside its neighbour than to continuing it, so nearest
+  alone builds a staircase out of a straight run.
+
+  **At rest, not during the drag**, so one gesture makes one override and nothing jumps under the
+  cursor while it is still held. The transform is written along with the document — the two have to
+  agree before the next tick, or the difference is recorded as a second edit — inside the undo group
+  the move already opened, so one Ctrl+Z takes the whole gesture back.
+
+  **Reach is half a cell of the map's own grid**, derived rather than picked: the distance inside
+  which you plainly aimed at the neighbour and not at the gap beside it, and never far enough to
+  pull an object out of the cell it was dropped in.
+
+  **It can put an object off the placement grid, and the overlay says so.** Art whose footprint does
+  not divide the cell cannot be both flush with its neighbour and on the grid. The tool snaps and
+  lets the placement verdict report the conflict rather than choosing quietly; the art it ships is
+  metre-based, where the two agree.
 
 - **`SwapAsset` has a control.** The op has resolved and round-tripped since the document model
   was written and nothing ever produced one. Now a dropdown and a `Swap`

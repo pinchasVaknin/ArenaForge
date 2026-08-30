@@ -248,6 +248,15 @@ of objects at once, or offer art the tagging does not already group together —
 a second tag is how you say two things are interchangeable, and that is the catalog's job rather
 than the dropdown's.
 
+**Edge snapping and the placement grid can disagree, and nothing reconciles them.** A dropped
+object is pulled flush with its neighbour's edge; `ConstraintKind.OnGrid` wants its pivot on the
+map's cell grid. Art whose footprint divides the cell satisfies both — which is all of the art this
+tool writes, deliberately, since section 3 of ARCHITECTURE.md sizes it in whole metres. Art that
+does not can be flush or on the grid and not both, and the snap picks flush. The overlay's
+placement verdict then shows the object as refused by `OnGrid`, which is true and is the honest
+thing to show; what is missing is any way to say which of the two you would rather have. A modifier
+key while dragging, or a per-catalog preference, would cover it and neither is there.
+
 **Edit capture only runs while the tool window is open.** This is a deliberate trade rather than an
 oversight — see ARCHITECTURE.md section 6 — but it does mean deleting a realised object with the
 window closed goes unrecorded, and the object comes back on the next regeneration.

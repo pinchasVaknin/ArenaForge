@@ -1120,6 +1120,27 @@ than a fixed sphere that would claim the same size for a junction on a sixty-met
 four-hundred-metre town. The three kinds are told apart by colour, because what makes a portal a
 portal is what it is attached to and not how big it is.
 
+**A dropped object is pulled flush with what it landed beside.** `ArenaEditCapture` snaps at the
+moment an instance comes to rest, before it records the move: the arithmetic is `EdgeSnap.TryFlush`
+in Core, measured against everything else the resolved map holds bar the object being dragged and
+bar props standing on sockets. At rest rather than during the drag, because one gesture should make
+one override and an object that jumped under the cursor while it was held would be fighting the
+hand holding it. The transform is written along with the document, since the two have to agree
+before the next tick reads them, and both go inside the undo group the move already opened.
+
+The rule worth stating is which axis is which. Each neighbour decides the direction of the run — the
+axis the two footprints share least of — and the offsets butt them together along it and line their
+edges up across it. Letting every offer compete on both axes and taking the nearest edge is the
+obvious shape and it builds a staircase: a wall dropped slightly sideways of its neighbour is nearer
+to sitting alongside it than to continuing it, so nearest alone would sit it alongside.
+
+Reach is half a cell of the map's grid, which is the distance inside which a drop plainly aimed at
+the neighbour rather than at the gap beside it, and which cannot pull an object out of the cell it
+landed in. **The snap can leave an object off the grid**, because art whose footprint does not
+divide the cell cannot be both flush and on it; the placement verdict above then reports `OnGrid`,
+which is true. Two snaps that disagree is the honest state of things, and the tool shows the
+conflict rather than choosing on the user's behalf.
+
 ### Merge to Prefab is a workflow, not a new kind of art
 
 The thing a person actually builds is rarely one prefab. A desk with a monitor on it and a chair

@@ -146,11 +146,11 @@ namespace ArenaForge.Core
 
                 if (HasTag(placed, ArenaLayoutGenerator.StructureTag))
                 {
-                    structures.Add(WorldFootprint(placed, entry));
+                    structures.Add(placed.Pose.Bounds(entry.Footprint));
                 }
                 else if (IsCover(placed))
                 {
-                    cover.Add(WorldFootprint(placed, entry));
+                    cover.Add(placed.Pose.Bounds(entry.Footprint));
                 }
 
                 if (Occluder.TryCreate(placed, entry, eyeHeight, out Occluder occluder))
@@ -392,31 +392,6 @@ namespace ArenaForge.Core
             }
 
             return doorways;
-        }
-
-        /// <summary>
-        /// The world-space bounds of a placed object's footprint.
-        /// </summary>
-        /// <remarks>
-        /// The axis-aligned box, not the oriented rectangle. Its callers are the walkable set and
-        /// the cover radius, and both want the conservative answer: a cell a rotated barrier
-        /// clips is floor that plays as blocked, and cover you are diagonally behind still counts.
-        /// </remarks>
-        static Rect2 WorldFootprint(PlacedObject placed, CatalogEntry entry)
-        {
-            Pose pose = placed.Pose;
-            Rect2 local = entry.Footprint;
-
-            Vec3 a = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MinZ));
-            Vec3 b = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MinZ));
-            Vec3 c = pose.TransformPoint(new Vec3(local.MaxX, 0f, local.MaxZ));
-            Vec3 d = pose.TransformPoint(new Vec3(local.MinX, 0f, local.MaxZ));
-
-            return new Rect2(
-                MathF.Min(MathF.Min(a.X, b.X), MathF.Min(c.X, d.X)),
-                MathF.Min(MathF.Min(a.Z, b.Z), MathF.Min(c.Z, d.Z)),
-                MathF.Max(MathF.Max(a.X, b.X), MathF.Max(c.X, d.X)),
-                MathF.Max(MathF.Max(a.Z, b.Z), MathF.Max(c.Z, d.Z)));
         }
 
         /// <summary>
