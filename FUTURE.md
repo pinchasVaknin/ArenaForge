@@ -248,6 +248,16 @@ of objects at once, or offer art the tagging does not already group together —
 a second tag is how you say two things are interchangeable, and that is the catalog's job rather
 than the dropdown's.
 
+**A catalog row does not count the scale on its prefab's root.** `CatalogSync` measures in the
+prefab's own root space, so a component on the root is measured through an identity matrix and the
+root's own scale cancels out — while `WorldRealizer` instantiates the prefab and that scale applies
+to what stands in the map. Art whose root is not at unit scale therefore gets a row that disagrees
+with the object. `ArenaAssetImportTests.TheMeasurementIgnoresTheRootsOwnScale` pins the behaviour so
+it cannot change by accident. Fixing it is a one-line change to `Extent` and a very wide one in
+effect: every row measured off such a prefab moves, and with it every recorded digest and both
+thousand-seed sweeps. Worth doing deliberately, with the baselines re-recorded in the editor, and
+not as the side effect of something else.
+
 **Edge snapping and the placement grid can disagree, and nothing reconciles them.** A dropped
 object is pulled flush with its neighbour's edge; `ConstraintKind.OnGrid` wants its pivot on the
 map's cell grid. Art whose footprint divides the cell satisfies both — which is all of the art this
@@ -487,6 +497,17 @@ The one case it would genuinely buy something is the case that is still open: a 
 the shortest panel, with something standing at both ends of it, which no seating can fill. That is
 rare enough now — structures are held clear of the boundary strip and the dressing places around it
 — that it did not justify the change.
+
+**A uniform scale inside a declared tolerance was built to close that case, measured, and taken back
+out.** The rule stretched the last piece of a stretch to fill the remainder exactly, bounded by a
+per-row tolerance in metres so the 43% squash above stayed impossible. Over 120 maps at three sizes
+it fired **not once** on a 0.97 m panel — the case it was justified by — and where it did fire it
+saved between nothing and three per cent: a remainder is only ever near a piece's own length by
+coincidence, and once length variants are on the shelf the lapping that is left is the corner
+handover rather than a remainder at all. The code was reverted rather than shipped. What the
+measurement pointed at instead is that art measured at 0.97 m is a fault in the asset, and correcting
+it once at import — `ArenaAssetImport` — takes the same map's lapping from 1.96 m to 1.20 m, which is
+the corner floor, meaning none left.
 
 **Length variants are the answer this entry was reaching for.** A folder holding the same wall at
 several lengths, and a closing pass that takes the longest that fits, gets what stretching wanted —

@@ -50,6 +50,41 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
+- **Art somebody else modelled is imported as a prefab variant, fitted with a collider and corrected
+  to size.** `ArenaAssetImport` beside `ArenaAssetBuilder` — beside rather than inside, because that
+  file is the one place in the package that authors geometry and this one composes variants of art it
+  did not make.
+
+  **A variant, not a copy.** The source is left exactly as it was, so an art pack can be updated in
+  place and the collider and the correction follow. A copy would double every mesh reference in the
+  project and be a synchronisation problem for as long as both existed.
+
+  **The size correction is for measurement error and nothing else.** A panel that measures 0.97 m was
+  meant to be a metre, and a run tiled from it carries three centimetres of visible slack per piece.
+  The default tolerance is five centimetres: larger than modelling slop, smaller than any deliberate
+  size. Nothing in the number can tell a mis-measured 4.70 from a deliberate 2.30, and rounding the
+  second is a 30 cm distortion — measured, it takes the lapping on a default map from 2.14 m to
+  2.54 m — so the default corrects the first kind and declines the second. Everything declined is
+  reported.
+
+  **The correction goes on the prefab's children, and art modelled onto its root is refused.** See
+  the fixed measurement convention below; a correction on the root would be invisible to the catalog
+  and visible in the map.
+
+### Fixed
+
+- **`CatalogSync` measures a prefab in its own root space, so the root's own scale is not counted.**
+  `Extent` composes `root.worldToLocalMatrix * of.localToWorldMatrix`, which cancels for a component
+  on the root itself — while `WorldRealizer` instantiates that prefab and the root scale plainly does
+  apply to what stands in the map. A row measured off a prefab with a scaled root therefore says one
+  size while the map stands at another.
+
+  This is **documented and pinned by a test rather than changed**:
+  `ArenaAssetImportTests.TheMeasurementIgnoresTheRootsOwnScale`. Counting the root's scale would move
+  every row measured off every prefab whose root is not at unit scale, and with it every recorded
+  digest and both thousand-seed sweeps — a decision worth taking deliberately rather than as the side
+  effect of an import feature. What it settles for now is where a size correction may live.
+
 - **A dropped object is pulled flush with the edges it landed beside.** `EdgeSnap.TryFlush` in Core,
   called from `ArenaEditCapture` at the moment an instance comes to rest: a wall dropped with a
   seam after the one before it closes the seam, and one dropped a little sideways of it comes back
