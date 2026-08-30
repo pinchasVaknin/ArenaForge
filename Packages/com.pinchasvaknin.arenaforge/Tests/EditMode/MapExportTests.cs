@@ -25,6 +25,7 @@ namespace ArenaForge.Tests
 
         CatalogAsset _catalog;
         ArenaMap _map;
+        TerrainData _ground;
 
         [SetUp]
         public void SetUp()
@@ -66,6 +67,13 @@ namespace ArenaForge.Tests
                 UnityEngine.Object.DestroyImmediate(_catalog);
             }
 
+            if (_ground != null)
+            {
+                UnityEngine.Object.DestroyImmediate(_ground);
+                _ground = null;
+            }
+
+            AssetDatabase.DeleteAsset(MapExport.DataPath(ExportPath));
             AssetDatabase.DeleteAsset(TempFolder);
         }
 
@@ -85,6 +93,77 @@ namespace ArenaForge.Tests
                 Weight = 1f,
                 Prefab = prefab,
             };
+        }
+
+        /// <remarks>
+        /// <para>
+        /// An exported map used to be the props and nothing else: the terrain is a sibling of the
+        /// map rather than a child of the realisation root the bake walks, so what came out was a
+        /// field of crates over no ground at all.
+        /// </para>
+        /// <para>
+        /// <strong>And the heightfield is the export's own.</strong> Pointing the prefab at the
+        /// <c>TerrainData</c> the scene is still using would mean the next Generate rewrote the
+        /// ground under every map ever exported from that scene, which is the opposite of what
+        /// exporting is for. Both halves are asserted, because a terrain in the prefab that shared
+        /// the scene's heightfield would look exactly like a working export until the day it did
+        /// not.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheExportCarriesTheGroundAndAHeightfieldOfItsOwn()
+        {
+            TerrainData scene = Ground(2f);
+
+            _map.Generate();
+
+            GameObject prefab = MapExport.Export(_map, ExportPath);
+
+            var exported = prefab.GetComponentInChildren<Terrain>(true);
+            Assert.That(exported, Is.Not.Null, "the exported map has no ground in it");
+            Assert.That(exported.terrainData, Is.Not.Null);
+
+            Assert.That(exported.terrainData, Is.Not.SameAs(scene),
+                "the export shares the scene's heightfield, so regenerating would rewrite it");
+
+            Assert.That(AssetDatabase.Contains(exported.terrainData), Is.True,
+                "the exported heightfield is not an asset on disk, so the prefab points at nothing");
+
+            var collider = prefab.GetComponentInChildren<TerrainCollider>(true);
+            Assert.That(collider, Is.Not.Null);
+            Assert.That(collider.terrainData, Is.SameAs(exported.terrainData),
+                "the collider and the renderer disagree about the ground");
+        }
+
+        /// <remarks>
+        /// The map is the editable source and the export is a copy taken at a moment, so exporting
+        /// must not reach back into the scene: the terrain the map is still pointing at has to be
+        /// the one it had before.
+        /// </remarks>
+        [Test]
+        public void ExportingLeavesTheScenesOwnTerrainAlone()
+        {
+            TerrainData scene = Ground(2f);
+
+            _map.Generate();
+            MapExport.Export(_map, ExportPath);
+
+            Assert.That(_map.Terrain, Is.Not.Null);
+            Assert.That(_map.Terrain.terrainData, Is.SameAs(scene));
+        }
+
+        /// <summary>Gives the map a terrain to export, and keeps it for teardown.</summary>
+        TerrainData Ground(float height)
+        {
+            _ground = new TerrainData { heightmapResolution = 33 };
+            _ground.size = new Vector3(128f, 8f, 128f);
+
+            GameObject terrain = Terrain.CreateTerrainGameObject(_ground);
+            terrain.transform.SetParent(_map.transform, false);
+            terrain.transform.localPosition = new Vector3(-64f, height, -64f);
+
+            _map.Terrain = terrain.GetComponent<Terrain>();
+            return _ground;
         }
 
         // --- the bake -------------------------------------------------------------------------

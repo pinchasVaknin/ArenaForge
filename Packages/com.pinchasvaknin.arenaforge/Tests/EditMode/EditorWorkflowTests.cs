@@ -293,6 +293,195 @@ namespace ArenaForge.Tests
                 $"rest at {landed.Position.Y}");
         }
 
+        /// <remarks>
+        /// The drop, with the editor's own notification taken out of it: an instance of catalog art
+        /// standing at the scene root is exactly what dragging a prefab in from the Project window
+        /// leaves behind, and this asks whether capture makes a <c>user/</c> object of it. Split from
+        /// the event that delivers it on purpose — when the feature failed in the editor, the whole
+        /// question was which of the two halves was broken, and a test that exercised both at once
+        /// could not say.
+        /// </remarks>
+        [Test]
+        public void APrefabStandingAtTheSceneRootIsAdoptedAsAUserObject()
+        {
+            GenerateAndWatch();
+
+            CatalogAsset.Row crate = Crate();
+
+            var dropped = (GameObject)PrefabUtility.InstantiatePrefab(crate.Prefab);
+            dropped.transform.position = new Vector3(3.3f, 0f, 4.7f);
+
+            _capture.Adopt(dropped);
+
+            var added = new List<EditOverride>();
+            foreach (EditOverride edit in _map.Document.Overrides)
+            {
+                if (edit.Op == OverrideOp.Add)
+                {
+                    added.Add(edit);
+                }
+            }
+
+            Assert.That(added.Count, Is.EqualTo(1),
+                "a dropped prefab the catalog knows should become exactly one Add");
+            Assert.That(added[0].TargetId, Does.StartWith(ArenaEditCapture.UserIdPrefix));
+            Assert.That(added[0].LogicalId, Is.EqualTo(crate.LogicalId));
+            Assert.That(dropped == null, Is.True,
+                "the dropped instance should be gone, replaced by the realiser's own");
+        }
+
+        /// <remarks>
+        /// <para>
+        /// Not a property of the tool but a fact about the editor, and the reason
+        /// <see cref="ArenaDropWatch"/> compares the scene against the last pass instead of
+        /// subscribing to <see cref="ObjectChangeEvents"/>. A headless run publishes <em>no change
+        /// at all</em> for a prefab instantiation, so a listener cannot be covered by this suite —
+        /// which is how the first version of the drop shipped broken and stayed broken while every
+        /// test round it was green.
+        /// </para>
+        /// <para>
+        /// <strong>Asserting the absence is the point.</strong> If a later editor starts publishing
+        /// here, this fails, and what it will be saying is that the event route has become testable
+        /// and is worth reconsidering. A comment could not do that.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void TheEditorPublishesNoChangeForAPrefabInstantiation()
+        {
+            var kinds = new List<ObjectChangeKind>();
+            var seen = new List<int>();
+
+            void OnChanges(ref ObjectChangeEventStream stream)
+            {
+                for (int i = 0; i < stream.length; i++)
+                {
+                    kinds.Add(stream.GetEventType(i));
+
+                    if (stream.GetEventType(i) == ObjectChangeKind.CreateGameObjectHierarchy)
+                    {
+                        stream.GetCreateGameObjectHierarchyEvent(
+                            i, out CreateGameObjectHierarchyEventArgs created);
+
+                        seen.Add(created.instanceId);
+                    }
+                }
+            }
+
+            ObjectChangeEvents.changesPublished += OnChanges;
+            GameObject dropped = null;
+
+            try
+            {
+                dropped = (GameObject)PrefabUtility.InstantiatePrefab(_catalog.Rows[3].Prefab);
+
+                // The stream is published on the editor's own loop rather than synchronously, so
+                // the test has to let one go round before asking what arrived.
+                for (int i = 0; i < 10 && seen.Count == 0; i++)
+                {
+                    EditorApplication.QueuePlayerLoopUpdate();
+                    System.Threading.Thread.Sleep(20);
+                }
+            }
+            finally
+            {
+                ObjectChangeEvents.changesPublished -= OnChanges;
+                if (dropped != null)
+                {
+                    Object.DestroyImmediate(dropped);
+                }
+            }
+
+            Assert.That(kinds, Is.Empty,
+                $"the editor published {string.Join(", ", kinds)} for a prefab instantiation, so " +
+                "the event route is testable after all and ArenaDropWatch could use it");
+
+            Assert.That(seen, Is.Empty);
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The half that was broken, end to end and without the editor's notification in it: a
+        /// prefab appears at the scene root, sits still for one pass, and is taken into the document
+        /// as a <c>user/</c> object.
+        /// </para>
+        /// <para>
+        /// <strong>Three passes, and each one is a rule.</strong> The first files what is already
+        /// there, so scenery in an opened scene is never swept up. The second sees something new and
+        /// notes where it is rather than taking it, because a prefab dragged from the Project window
+        /// is carried under the cursor and taking the first thing seen would take it out of
+        /// somebody's hand. The third finds it has not moved and adopts it.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void APrefabThatAppearsAndStopsMovingIsAdopted()
+        {
+            GenerateAndWatch();
+
+            // Begun before the drop, so the crate below is something that appeared afterwards.
+            ArenaDropWatch.Restart();
+            ArenaDropWatch.Pass();
+
+            var dropped = (GameObject)PrefabUtility.InstantiatePrefab(Crate().Prefab);
+            dropped.transform.position = new Vector3(6.4f, 0f, 2.2f);
+
+            ArenaDropWatch.Pass();
+
+            Assert.That(AddedObjects().Count, Is.EqualTo(0),
+                "a prefab still under the cursor should be waited on, not taken");
+            Assert.That(dropped == null, Is.False);
+
+            ArenaDropWatch.Pass();
+
+            List<EditOverride> added = AddedObjects();
+            Assert.That(added.Count, Is.EqualTo(1),
+                "a prefab that stopped moving should have been adopted");
+            Assert.That(added[0].TargetId, Does.StartWith(ArenaEditCapture.UserIdPrefix));
+            Assert.That(added[0].LogicalId, Is.EqualTo(Crate().LogicalId));
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The rule that keeps an opened scene's own furniture out of the document: the first pass
+        /// after a domain reload files what it finds and takes none of it, so art already standing
+        /// when the watch began stays scenery however long it sits there.
+        /// </para>
+        /// <para>
+        /// <strong>It has to restart the watch to ask this.</strong> The statics survive between
+        /// tests, so without it the crate below is new since the previous test's last pass — which
+        /// it is, and which the watch is right to adopt. Only a first pass can be asked what a first
+        /// pass does.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void APrefabAlreadyStandingWhenTheWatchStartedIsLeftAlone()
+        {
+            GenerateAndWatch();
+
+            var standing = (GameObject)PrefabUtility.InstantiatePrefab(Crate().Prefab);
+            standing.transform.position = new Vector3(9.1f, 0f, 7.3f);
+
+            try
+            {
+                // Standing before the watch begins, which is what a scene opened from disk looks
+                // like. The first pass files it, and it never moves after that.
+                ArenaDropWatch.Restart();
+                ArenaDropWatch.Pass();
+                ArenaDropWatch.Pass();
+                ArenaDropWatch.Pass();
+
+                Assert.That(AddedObjects().Count, Is.EqualTo(0),
+                    "scenery that was already in the scene should stay scenery");
+                Assert.That(standing == null, Is.False);
+            }
+            finally
+            {
+                if (standing != null)
+                {
+                    Object.DestroyImmediate(standing);
+                }
+            }
+        }
+
         // --- swapping the art under an object -------------------------------------------------
 
         /// <remarks>
@@ -735,6 +924,36 @@ namespace ArenaForge.Tests
         }
 
         // --- helpers ------------------------------------------------------------------------
+
+        /// <summary>The crate row, which is the art these tests drop.</summary>
+        CatalogAsset.Row Crate()
+        {
+            for (int i = 0; i < _catalog.Rows.Count; i++)
+            {
+                if (_catalog.Rows[i].LogicalId == "cover/low/crate_wood_01")
+                {
+                    return _catalog.Rows[i];
+                }
+            }
+
+            Assert.Fail("the test catalog has no crate to drop");
+            return null;
+        }
+
+        /// <summary>The Add overrides the document is carrying.</summary>
+        List<EditOverride> AddedObjects()
+        {
+            var added = new List<EditOverride>();
+            foreach (EditOverride edit in _map.Document.Overrides)
+            {
+                if (edit.Op == OverrideOp.Add)
+                {
+                    added.Add(edit);
+                }
+            }
+
+            return added;
+        }
 
         /// <summary>Generates a map and starts watching it, as opening the window on it would.</summary>
         void GenerateAndWatch()

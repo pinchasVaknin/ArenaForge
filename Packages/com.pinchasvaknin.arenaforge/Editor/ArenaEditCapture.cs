@@ -51,13 +51,10 @@ namespace ArenaForge.Editor
         }
 
         readonly List<Watched> _watched = new List<Watched>();
-        readonly List<int> _dropped = new List<int>();
         readonly ArenaMap _map;
 
         WorldDoc _builtFrom;
         int _cleanUndoGroup;
-        bool _listening;
-        bool _adopted;
 
         /// <summary>Starts watching a map. Call <see cref="Rebuild"/> once it has been realised.</summary>
         public ArenaEditCapture(ArenaMap map)
@@ -118,62 +115,6 @@ namespace ArenaForge.Editor
         }
 
         /// <summary>
-        /// Starts watching the scene for prefabs dropped into it. Idempotent, and paired with
-        /// <see cref="Release"/>.
-        /// </summary>
-        /// <remarks>
-        /// On the same bargain the class itself is on: capture mutates the user's document, so it
-        /// listens while the tool window is open and not while it is closed.
-        /// </remarks>
-        public void Watch()
-        {
-            if (_listening)
-            {
-                return;
-            }
-
-            _listening = true;
-            ObjectChangeEvents.changesPublished += OnSceneChanged;
-        }
-
-        /// <summary>Stops watching the scene. Idempotent, and safe on one that never started.</summary>
-        public void Release()
-        {
-            if (!_listening)
-            {
-                return;
-            }
-
-            _listening = false;
-            ObjectChangeEvents.changesPublished -= OnSceneChanged;
-        }
-
-        /// <summary>
-        /// Notes objects that have appeared in the scene, to be looked at on the next tick.
-        /// </summary>
-        /// <remarks>
-        /// Noted rather than acted on. Adopting one means destroying it, adding an override and
-        /// realising the document, which is a scene edit — and making a scene edit from inside the
-        /// notification that a scene edit happened is how a plugin ends up re-entering itself. The
-        /// tick is already the place where this class changes things.
-        /// </remarks>
-        void OnSceneChanged(ref ObjectChangeEventStream stream)
-        {
-            for (int i = 0; i < stream.length; i++)
-            {
-                if (stream.GetEventType(i) != ObjectChangeKind.CreateGameObjectHierarchy)
-                {
-                    continue;
-                }
-
-                stream.GetCreateGameObjectHierarchyEvent(
-                    i, out CreateGameObjectHierarchyEventArgs created);
-
-                _dropped.Add(created.instanceId);
-            }
-        }
-
-        /// <summary>
         /// Looks for moved and deleted instances and records them. Returns true if the document
         /// changed.
         /// </summary>
@@ -181,24 +122,8 @@ namespace ArenaForge.Editor
         {
             if (_map == null || !_map.HasDocument)
             {
-                _dropped.Clear();
                 return false;
             }
-
-            for (int i = 0; i < _dropped.Count; i++)
-            {
-                // InstanceIDToObject over EntityIdToObject, which replaces it: the replacement
-                // arrived in 6000.3 and this package says it runs on 6000.0. The old call still
-                // works on both.
-#pragma warning disable 618
-                Adopt(EditorUtility.InstanceIDToObject(_dropped[i]) as GameObject);
-#pragma warning restore 618
-            }
-
-            _dropped.Clear();
-
-            bool adopted = _adopted;
-            _adopted = false;
 
             WorldDoc doc = _map.Document;
 
@@ -212,7 +137,7 @@ namespace ArenaForge.Editor
                 return true;
             }
 
-            bool registered = adopted;
+            bool registered = false;
             bool settled = true;
 
             for (int i = 0; i < _watched.Count; i++)
@@ -261,11 +186,6 @@ namespace ArenaForge.Editor
                 return true;
             }
 
-            if (adopted)
-            {
-                return true;
-            }
-
             if (settled)
             {
                 // Nothing is pending, so any undo step after this point belongs to the next edit
@@ -292,7 +212,15 @@ namespace ArenaForge.Editor
         /// <para>
         /// <strong>Only a drop into the scene itself.</strong> An object parented to something is a
         /// deliberate piece of hierarchy somebody built, and one already under the realisation root
-        /// is this class's own realise coming back round as a notification.
+        /// is this class's own realise coming back round.
+        /// </para>
+        /// <para>
+        /// <strong>What notices a drop is <see cref="ArenaDropWatch"/>, which looks at the scene
+        /// rather than listening for a notification.</strong> The reason is written up there: the
+        /// editor publishes no change at all for a prefab instantiation in a headless run, so a
+        /// listener could not be covered by the suite and was broken for as long as nobody dragged
+        /// anything in. This half — deciding what a dropped object becomes — is testable on its own
+        /// and is tested on its own.
         /// </para>
         /// <para>
         /// <strong>The dropped instance is destroyed and the document makes its own.</strong> The
@@ -307,41 +235,9 @@ namespace ArenaForge.Editor
         /// beside, on the grid otherwise, standing on whatever is under it.
         /// </para>
         /// </remarks>
-        void Adopt(GameObject dropped)
+        internal void Adopt(GameObject dropped)
         {
-            if (dropped == null || dropped.transform.parent != null ||
-                dropped.GetComponent<ArenaObjectRef>() != null)
-            {
-                return;
-            }
-
-            CatalogAsset asset = _map.Realizer != null ? _map.Realizer.Catalog : null;
-            if (asset == null || PrefabUtility.GetNearestPrefabInstanceRoot(dropped) != dropped)
-            {
-                return;
-            }
-
-            GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource<GameObject>(dropped);
-            if (prefab == null)
-            {
-                return;
-            }
-
-            string logicalId = null;
-            string[] tags = null;
-            IReadOnlyList<CatalogAsset.Row> rows = asset.Rows;
-
-            for (int i = 0; i < rows.Count; i++)
-            {
-                if (rows[i].Prefab == prefab)
-                {
-                    logicalId = rows[i].LogicalId;
-                    tags = rows[i].Tags;
-                    break;
-                }
-            }
-
-            if (logicalId == null)
+            if (!TryRow(_map, dropped, out string logicalId, out string[] tags))
             {
                 return;
             }
@@ -361,7 +257,7 @@ namespace ArenaForge.Editor
                 uniform,
                 scale.y / uniform);
 
-            CatalogEntry entry = asset.ToCatalog().Find(logicalId);
+            CatalogEntry entry = _map.Realizer.Catalog.ToCatalog().Find(logicalId);
             if (entry != null)
             {
                 pose = Snapped(doc, entry, null, t, pose);
@@ -371,8 +267,57 @@ namespace ArenaForge.Editor
             Undo.DestroyObjectImmediate(dropped);
             RecordAdd(logicalId, pose, tags);
             Undo.CollapseUndoOperations(group);
+        }
 
-            _adopted = true;
+        /// <summary>
+        /// Whether a scene object is one <see cref="Adopt"/> would take into a map's document.
+        /// </summary>
+        /// <remarks>
+        /// The same question <see cref="Adopt"/> asks first, so that <see cref="ArenaDropWatch"/> can
+        /// tell a candidate from scenery before it starts waiting for one to stop moving — and so
+        /// the two can never disagree about what is adoptable.
+        /// </remarks>
+        internal static bool CanAdopt(ArenaMap map, GameObject dropped) =>
+            TryRow(map, dropped, out _, out _);
+
+        /// <summary>The catalog row a dropped object's prefab is bound to, if it is adoptable.</summary>
+        static bool TryRow(
+            ArenaMap map, GameObject dropped, out string logicalId, out string[] tags)
+        {
+            logicalId = null;
+            tags = null;
+
+            if (map == null || dropped == null || dropped.transform.parent != null ||
+                dropped.GetComponent<ArenaObjectRef>() != null)
+            {
+                return false;
+            }
+
+            CatalogAsset asset = map.Realizer != null ? map.Realizer.Catalog : null;
+            if (asset == null || PrefabUtility.GetNearestPrefabInstanceRoot(dropped) != dropped)
+            {
+                return false;
+            }
+
+            GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource<GameObject>(dropped);
+            if (prefab == null)
+            {
+                return false;
+            }
+
+            IReadOnlyList<CatalogAsset.Row> rows = asset.Rows;
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Prefab == prefab)
+                {
+                    logicalId = rows[i].LogicalId;
+                    tags = rows[i].Tags;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

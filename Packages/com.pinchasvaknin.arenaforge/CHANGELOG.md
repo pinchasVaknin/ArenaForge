@@ -234,6 +234,58 @@ All notable changes to this package are documented here. The format follows
   change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
   than in another number.
 
+- **A dropped prefab is adopted again, and this time by something the suite can reach.**
+  `ArenaDropWatch` replaces the `ObjectChangeEvents` subscription that never worked.
+
+  **The listener was untestable, which is why it shipped broken.** A headless run publishes no
+  change at all for a prefab instantiation — `EditorWorkflowTests.TheEditorPublishesNoChangeForA`
+  `PrefabInstantiation` now asserts that absence — so nothing in the suite could have caught a
+  listener that never fired, and nothing did. `Adopt` was fine throughout: handed an object, it made
+  the `user/` Add and snapped it, which the reproduction added here confirms on the first run.
+
+  **So the watch compares the scene against the last pass instead.** Nothing in it needs the
+  editor's notification machinery, so the whole path runs in the suite that guards it. Three rules,
+  each with a test of its own: the first pass files what it finds and adopts none of it, so opening a
+  scene never sweeps its furniture into the document; a candidate must sit still for one pass, since
+  a prefab dragged from the Project window is carried under the cursor and taking the first thing
+  seen would take it out of somebody's hand; and with anything other than exactly one generated map
+  loaded, nothing is adopted, because a dropped object belongs to a map and guessing which would file
+  art in the wrong document.
+
+  **It runs whether or not the tool window is open**, which is a change of bargain and is recorded as
+  one. Capture listens only while the window is on screen, on the grounds that a tool mutating a
+  document should do it while somebody is watching. Dragging art into an arena is a deliberate act
+  aimed at that map, so what remains of the bargain is the narrower rule above.
+
+- **An exported map carries its ground.** `MapExport` bakes `Realizer.Root`, and a map's terrain is a
+  sibling of that root rather than a child of it — so what came out of an export was the props and
+  nothing under them. The terrain is parented into the root for the length of the bake and taken out
+  again, which keeps every prop exactly where the document put it.
+
+  **With a heightfield of its own, written beside the prefab.** Pointing the exported prefab at the
+  `TerrainData` the scene is still using would mean the next Generate rewrote the ground under every
+  map ever exported from that scene, which is the opposite of what an export is for — `MapExport`
+  already calls itself "a copy taken at a moment", and the ground is now part of the copy. Both
+  halves are asserted, because a prefab sharing the scene's heightfield looks exactly like a working
+  export until the day it stops being one.
+
+- **`Rotate Internal Mesh` for art that faces the wrong way.** Two items on the Project window's
+  context menu, one a quarter turn and one asking for an angle. A facing is not a measurement, so
+  nothing in the import pipeline can find this; it turns up when the generator stands a row of art
+  along a wall and half of it faces into the wall.
+
+  **The children turn and the root does not**, which is the whole constraint: `WorldRealizer` writes
+  a pose onto that transform, `CatalogSync` measures through it and the placement stages reason about
+  a footprint they believe is axis-aligned. They are turned *about the root's origin*, position and
+  rotation together — rotating a child in place spins art that is off the pivot where it stands
+  instead of carrying it round, which shears a model rather than turning it.
+
+  **A root that is not already square is refused rather than squared up.** Correcting one would move
+  art already standing in a map, and this is reached by right-clicking an asset, which is the last
+  place anybody expects a wide silent change. For the same reason it reports which catalog rows are
+  measured off the art it turned — a quarter turn swaps a footprint's X and Z — rather than
+  re-syncing them and moving rows nobody asked about.
+
 - **A spawn's fence ring is sized to the art, so the only gaps in it are the gates.** The ring was
   sized to the pad and the gates dropped wherever a draw put them, which left every face ending in a
   stretch too short for any panel in the palette and split the rest into offcuts. On a ring four
