@@ -234,6 +234,95 @@ All notable changes to this package are documented here. The format follows
   change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
   than in another number.
 
+- **A road is drawn once: the merge trims instead of dropping.** `RoadNetwork.Merge` cut a segment
+  only when it rode inside *one* other road end to end, which on a hilly map is none of them — 0.0%
+  of the network, against 79.7% riding inside the union of several in turn. So the same ground was
+  drawn as several full-length segments, and `RoadKerbs` and `RoadFurniture`, which both walk
+  `Segments`, laid a second run of kerbing and a second set of street furniture along one strip.
+
+  Each segment is now cut down to the stretches no kept road covers. Seed 11162802767278075537 at
+  100 x 100 and twenty metres of relief goes from **958.2 m of polyline over 359 m of ground to
+  427.5 m over the same 359 m** — a ratio of 1.19 where it was 2.67, and 1.00 on flat ground, which
+  is each piece of ground drawn once.
+
+  **Cut after the sweep, with the profile cut to match.** Each piece carries the heights the whole
+  segment was graded to, so a branch that starts against a trunk starts at the trunk's height.
+  Cutting first and grading after would re-pin every cut end to the raw terrain and put a step where
+  a branch meets the road it came off.
+
+  **Trimming can do what dropping could not.** Dropping a segment covered by the union split the
+  network on 21 seeds in a thousand, because half on one artery and half on another is the join
+  between them. A cut piece still begins and ends against the carriageway that covered what was
+  taken off it, so it stays joined to exactly what it was joined to.
+
+  **Every bare stretch is kept, however short** — and that took a second measurement to get right.
+  Discarding stretches shorter than the road is wide looked like obvious tidying and put seed 3 into
+  two pieces, with 1.000 m of clear ground between a 23 m path and the rest of the network: a bare
+  stretch is by definition ground no other road covers, so dropping one leaves a hole. With the rule
+  gone, 0 of 60 seeds at twenty metres of relief and 0 of 200 of the relief sweep come out in more
+  than one piece. The cost is 36 sub-metre pieces in 805.
+
+- **A spawn's graded pad is a disc round the marker, not the whole band.** `Foundation` gained a
+  circular form and `ArenaLayoutGenerator` uses it for the spawns, at a radius of half the band's
+  short side — the circle inscribed in it.
+
+  **The rectangle was levelling 23.3% of the map.** A spawn area runs the full width of the
+  playfield, so holding all of it flat put a level strip clean across the arena at each end: 840 m²
+  of 3,600 on the default map. The two ends of the map were flat, and so was a quarter of everything
+  between them. The disc levels 2.1%. Measured across the spawn areas of the reported map: the pad
+  disc is flat to 0.000 m and the rest of the band is back to 12.001 m of relief, where before both
+  were 0.000.
+
+  **It stays a foundation rather than becoming a disc-shaped corridor**, because `TerrainField`
+  resolves a point as `onPad ? pad : onRoad ? road : ground` — a pad beats a road. That is what keeps
+  a spawn flat when a road grades through it, and a corridor would have let the road win.
+
+  **`SpawnEnclosure` is re-sized to the square inscribed in the disc**, so every panel of the ring
+  still stands on ground held at one height: the furthest panel is 5.27 m from its marker against a
+  6.0 m radius. A ring is now 65.7% panel, 23.9% gate and 10.4% tail.
+
+- **The boundary ring sampled the ground too coarsely to find its own highest point.**
+  `PerimeterFence.HeightSampleStep` was a metre, on the stated reasoning that a metre is finer than
+  the ground's smallest feature. It is not: three octaves of value noise put the finest at about five
+  metres, so a metre is five samples across it and the ground between two of them can rise a couple
+  of millimetres above either. Seed 1 of the boundary sweep had `fence_045` two millimetres under the
+  ground. A quarter of a metre clears all twenty seeds.
+
+  It went unnoticed for as long as the spawn pads were rectangles, because they held the strip at
+  each end of the map dead flat and there was nothing between the samples to miss.
+
+- **`MaxCorridorShare` is 0.75 where it was 0.70, and braiding did not get worse.** The old number
+  was measured when a spawn's pad was the whole band, holding 23.3% of the map flat — two level
+  strips across the arena are a highway routes converge on, and converging routes share corridors,
+  so 0.677 was partly a measurement of the pads. On the disc-padded map the sweep comes to 0.7145
+  over 200 seeds and 0.7116 over a thousand, against 0.8184 and 0.8151 with the cost decay removed.
+  The decay still buys 0.104 where it bought 0.123, on ground with a quarter more relief in it, so
+  the two distributions still separate cleanly and the threshold still catches what it is for. The
+  no-decay figure was re-measured on the new ground rather than carried over.
+
+  **Three digest baselines were re-recorded** on the editor's own runtime, as their remarks require:
+  `UnfurnishedDigests`, `KerblessDigests` and `RoadlessDigests`, 200 each. The last of those is a map
+  with no roads at all, and it moved because a spawn marker's metadata now names a disc.
+
+- **Cover coverage tolerates a tail of three seeds, and the target itself does not move.**
+  `MapThresholds.MinCoverCoverage` stays at 0.600. It is a statement about what makes a map worth
+  playing rather than a number tuned to what the generator currently manages, and the way to meet it
+  is to give the arenas more kinds of prop to scatter. What the road sweep now allows is up to
+  `CoverShortSeedsAllowed` seeds falling short of it, which is a tail rather than a standard.
+
+  **The distribution did not move.** Over seeds 1..1000 of the default map with roads, the mean is
+  0.6967 against 0.700 before the segments were trimmed, and the range is 0.5899 to 0.7760 against
+  0.602 to 0.771 — the top end rose. Eight seeds sit within 0.01 of the target, so any change that
+  reshuffles where cover is scattered pushes one or two across, and trimming duplicate road segments
+  changes the corridor reservation that cover places around. Two seeds are short: 617 by 0.011 and
+  906 by 0.004. It is not the disc pad, which is geometrically nothing on a flat map.
+
+  **The allowance is narrow on purpose.** A seed is forgiven only if cover coverage is its single
+  complaint and it is short by no more than `CoverShortfallAllowed` — two hundredths, against a worst
+  measured shortfall of 0.011. A seed that also fails connectivity is not a tail but a broken map,
+  and a seed short by a tenth is not a tail either; both still fail. A cover stage that stopped
+  placing anything lands on this property rather than hiding under it.
+
 - **The climb price ran away at a low limit, and the decay charged for the earthworks twice.**
   Two faults in the entry above, both found by measuring the map that prompted it rather than the
   sweep. Seed 11162802767278075537 at 100 x 100, amplitude 20, limit 0.25 laid **1013.8 m of

@@ -104,12 +104,24 @@ namespace ArenaForge.Core
 
         /// <summary>How far apart the samples that find the ring's height are, in metres.</summary>
         /// <remarks>
-        /// A metre, which is finer than the ground's smallest feature and far finer than a panel is
-        /// long: what is being looked for is the highest point anywhere on the path, and a sample
-        /// spacing as coarse as the art would step over a rise between two panels and leave the
-        /// wall buried in it. The four corners are sampled whatever the spacing works out at.
+        /// <para>
+        /// A quarter of one, because what is being looked for is the highest point anywhere on the
+        /// path and a lattice only ever finds the highest point it lands on. The four corners are
+        /// sampled whatever the spacing works out at.
+        /// </para>
+        /// <para>
+        /// <strong>It was a metre, on the reasoning that a metre is finer than the ground's
+        /// smallest feature.</strong> That was not true enough: three octaves of value noise at the
+        /// default feature size put the finest one at about five metres, so a metre is five samples
+        /// across it and the ground between two of them can rise a couple of millimetres higher
+        /// than either. On seed 1 of the boundary sweep that left <c>fence_045</c> two millimetres
+        /// under the ground. It went unnoticed while a spawn's graded pad was the whole spawn band,
+        /// because the pads held the strip at each end of the map dead flat and there was nothing
+        /// between the samples to miss; the pad became a disc round the marker and the ground came
+        /// back. At a quarter of a metre no panel of twenty seeds is under the ground at all.
+        /// </para>
         /// </remarks>
-        const float HeightSampleStep = 1f;
+        const float HeightSampleStep = 0.25f;
 
         /// <summary>
         /// Fences the edge of the playfield and returns every segment it stood up, in generation

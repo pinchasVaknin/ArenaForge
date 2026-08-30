@@ -5,21 +5,48 @@ using System.Globalization;
 namespace ArenaForge.Core
 {
     /// <summary>
-    /// One graded pad: a rectangle held at a single height, blending back into the ground around
-    /// it.
+    /// One graded pad: a rectangle or a disc held at a single height, blending back into the
+    /// ground around it.
     /// </summary>
+    /// <remarks>
+    /// Two shapes rather than one because the two callers want different things and neither is the
+    /// other rounded off. A building stands on a rectangle because a building <em>is</em> one — its
+    /// footprint is the pad. A spawn is a place rather than an object, and squaring it off puts
+    /// flat ground in four corners nobody stands in and a straight edge across the map where the
+    /// ground should simply carry on.
+    /// </remarks>
     public readonly struct Foundation
     {
-        /// <summary>Creates a pad.</summary>
+        /// <summary>Creates a rectangular pad.</summary>
         public Foundation(Rect2 pad, float apron, float height)
         {
             Pad = pad;
+            Radius = 0f;
             Apron = apron;
             Height = height;
         }
 
-        /// <summary>The rectangle held dead flat.</summary>
+        /// <summary>Creates a circular pad.</summary>
+        /// <remarks>
+        /// <see cref="Pad"/> is the square around the disc, so anything that only wants to know how
+        /// far the pad reaches reads the same property either way and gets an answer that is never
+        /// too small.
+        /// </remarks>
+        public Foundation(Vec2 centre, float radius, float apron, float height)
+        {
+            Pad = new Rect2(
+                centre.X - radius, centre.Y - radius, centre.X + radius, centre.Y + radius);
+
+            Radius = radius;
+            Apron = apron;
+            Height = height;
+        }
+
+        /// <summary>The rectangle held dead flat, or the square around the disc that is.</summary>
         public Rect2 Pad { get; }
+
+        /// <summary>The radius held dead flat, or zero when the pad is its rectangle.</summary>
+        public float Radius { get; }
 
         /// <summary>How far out from the pad the ground takes to reach its own height again, in metres.</summary>
         public float Apron { get; }
@@ -403,6 +430,31 @@ namespace ArenaForge.Core
         }
 
         /// <summary>
+        /// Grades a flat disc into the ground and records it.
+        /// </summary>
+        /// <param name="centre">The middle of the disc.</param>
+        /// <param name="radius">How far out of the centre the ground is held dead flat, in metres.</param>
+        /// <param name="apron">How far past the disc the ground takes to recover, in metres.</param>
+        /// <param name="height">The height to hold the disc at.</param>
+        /// <exception cref="ArgumentOutOfRangeException">The radius is not positive, or the apron is negative.</exception>
+        public void AddFoundation(Vec2 centre, float radius, float apron, float height)
+        {
+            if (!(radius > 0f))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(radius), radius, "A foundation radius must be positive.");
+            }
+
+            if (apron < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(apron), apron, "A foundation apron must not be negative.");
+            }
+
+            _foundations.Add(new Foundation(centre, radius, apron, height));
+        }
+
+        /// <summary>
         /// Grades a road into the ground and records it.
         /// </summary>
         /// <param name="points">The centreline, at least one point. A single point is a disc.</param>
@@ -419,7 +471,9 @@ namespace ArenaForge.Core
         /// <summary>How much of a point's height a pad decides: 1 on the pad, 0 past its apron.</summary>
         static float Weight(Foundation foundation, Vec2 point)
         {
-            float distance = Rect2.Distance(foundation.Pad, new Rect2(point.X, point.Y, point.X, point.Y));
+            float distance = foundation.Radius > 0f
+                ? MathF.Max(0f, Vec2.Distance(foundation.Pad.Center, point) - foundation.Radius)
+                : Rect2.Distance(foundation.Pad, new Rect2(point.X, point.Y, point.X, point.Y));
             if (distance <= 0f)
             {
                 return 1f;

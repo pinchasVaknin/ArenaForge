@@ -86,6 +86,24 @@ namespace ArenaForge.Core
         /// <summary>Metadata key holding a spawn marker's area as a rectangle.</summary>
         public const string SpawnAreaKey = "spawn_area";
 
+        /// <summary>Metadata key holding the radius of a spawn's graded pad, in metres.</summary>
+        /// <remarks>
+        /// Its presence is what tells <see cref="TerrainBeforeRoads"/> that this object's pad is a
+        /// disc rather than the rectangle <see cref="FoundationKey"/> names. Replaying the ground a
+        /// document was generated on has to put back the same shape, not an equivalent one.
+        /// </remarks>
+        public const string FoundationRadiusKey = "foundation_radius";
+
+        /// <summary>
+        /// How much of a spawn area's short side its graded pad takes, as a radius.
+        /// </summary>
+        /// <remarks>
+        /// A half, so the disc is inscribed in the band: the widest circle that is still entirely
+        /// inside the ground the layout calls a spawn. Larger would grade flat ground into the lane
+        /// in front of it, which is the ground the map is supposed to be interesting on.
+        /// </remarks>
+        public const float SpawnPadShare = 0.5f;
+
         /// <summary>Metadata key holding how many doorway rectangles a structure declares.</summary>
         public const string DoorwayCountKey = "doorway_count";
 
@@ -354,24 +372,47 @@ namespace ArenaForge.Core
             for (int i = 0; i < doc.GeneratedObjects.Count; i++)
             {
                 IReadOnlyDictionary<string, string> metadata = doc.GeneratedObjects[i].Metadata;
-                if (metadata.TryGetValue(FoundationKey, out string pad) &&
-                    metadata.TryGetValue(FoundationHeightKey, out string height))
+                if (!metadata.TryGetValue(FoundationKey, out string pad) ||
+                    !metadata.TryGetValue(FoundationHeightKey, out string height))
+                {
+                    continue;
+                }
+
+                Rect2 area = RectMetadata.Parse(pad);
+                float level = float.Parse(height, NumberStyles.Float, CultureInfo.InvariantCulture);
+
+                if (metadata.TryGetValue(FoundationRadiusKey, out string radius))
                 {
                     terrain.AddFoundation(
-                        RectMetadata.Parse(pad),
+                        area.Center,
+                        float.Parse(radius, NumberStyles.Float, CultureInfo.InvariantCulture),
                         BuildingGenerator.FoundationApron,
-                        float.Parse(height, NumberStyles.Float, CultureInfo.InvariantCulture));
+                        level);
+
+                    continue;
                 }
+
+                terrain.AddFoundation(area, BuildingGenerator.FoundationApron, level);
             }
 
             return terrain;
         }
 
         /// <remarks>
+        /// <para>
         /// The spawn pads are graded before anything else is placed, so the two ends of the map
         /// are flat whatever the ground does in between. That is worth having on its own — a spawn
         /// on a slope gives one team a look down it — and it also means a marker's height is
         /// settled before a structure's apron could come near it.
+        /// </para>
+        /// <para>
+        /// <strong>A disc round the marker, not the whole band.</strong> A spawn area runs the full
+        /// width of the map, and holding all of it flat levelled a strip clean across the arena at
+        /// both ends — the two ends of the map were flat, and so was a fifth of everything between
+        /// them. The pad is now the circle inscribed in the band, centred on the marker, so the
+        /// spawn itself is a level base and the lane in front of it keeps the relief the amplitude
+        /// asked for. See <see cref="SpawnPadShare"/>.
+        /// </para>
         /// </remarks>
         static void EmitSpawnMarkers(
             WorldDoc doc, ArenaLayout layout, TerrainField terrain, Catalog catalog)
@@ -389,8 +430,14 @@ namespace ArenaForge.Core
         static PlacedObject SpawnMarker(
             CatalogEntry entry, string team, Rect2 area, int quarterTurns, TerrainField terrain)
         {
-            float height = terrain.MeanHeightOn(area);
-            terrain.AddFoundation(area, BuildingGenerator.FoundationApron, height);
+            float radius = SpawnPadRadius(area);
+            Rect2 pad = SpawnPad(area);
+
+            // Measured over the disc's own square rather than over the whole band: what the pad is
+            // held at should be the cut and fill of the ground it actually levels, and the band
+            // reaches ground fifty metres away that the pad never touches.
+            float height = terrain.MeanHeightOn(pad);
+            terrain.AddFoundation(area.Center, radius, BuildingGenerator.FoundationApron, height);
 
             return new PlacedObject(
                 $"map/spawn_{team}/marker",
@@ -401,9 +448,24 @@ namespace ArenaForge.Core
                 {
                     { TeamKey, team },
                     { SpawnAreaKey, RectMetadata.Format(area) },
-                    { FoundationKey, RectMetadata.Format(area) },
+                    { FoundationKey, RectMetadata.Format(pad) },
                     { FoundationHeightKey, height.ToString("R", CultureInfo.InvariantCulture) },
+                    { FoundationRadiusKey, radius.ToString("R", CultureInfo.InvariantCulture) },
                 });
+        }
+
+        /// <summary>How far out of a spawn's marker the ground is held dead flat, in metres.</summary>
+        public static float SpawnPadRadius(Rect2 area) =>
+            MathF.Min(area.Width, area.Depth) * SpawnPadShare;
+
+        /// <summary>The square around a spawn's graded disc.</summary>
+        public static Rect2 SpawnPad(Rect2 area)
+        {
+            float radius = SpawnPadRadius(area);
+            Vec2 centre = area.Center;
+
+            return new Rect2(
+                centre.X - radius, centre.Y - radius, centre.X + radius, centre.Y + radius);
         }
 
         /// <summary>

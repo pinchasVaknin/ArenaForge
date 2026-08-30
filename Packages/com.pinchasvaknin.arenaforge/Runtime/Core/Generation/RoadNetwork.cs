@@ -941,16 +941,7 @@ namespace ArenaForge.Core
         /// Turns the laid carriageways into the rectangles they reserve — see
         /// <see cref="Corridors"/>.
         /// </summary>
-        /// <summary>Share of a segment that has to ride on another before it is dropped.</summary>
-        /// <remarks>
-        /// Nine tenths, which is high on purpose: what is being removed is a segment that is the
-        /// same road twice, not one that merely shares a stretch. A branch that runs along an artery
-        /// for half its length and then turns off is a real branch, and the turn is the half that
-        /// matters.
-        /// </remarks>
-        const float RidingShare = 0.9f;
-
-        /// <summary>How far apart the samples are that decide whether one segment rides on another.</summary>
+        /// <summary>How far apart the samples are that decide which of a segment is already road.</summary>
         /// <remarks>
         /// Half a metre, finer than the narrowest carriageway this places and coarse enough that a
         /// long artery is a few hundred tests rather than a few thousand. Fixed rather than derived
@@ -959,7 +950,8 @@ namespace ArenaForge.Core
         const float RidingStep = 0.5f;
 
         /// <summary>
-        /// Drops the segments that are another segment drawn twice, keeping the first of each pair.
+        /// Cuts every segment down to the parts of it that are not already road, and drops what is
+        /// left of one that was road all the way along.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -980,12 +972,31 @@ namespace ArenaForge.Core
         /// that was retracing it.
         /// </para>
         /// <para>
-        /// <strong>Riding on one road, not on the network as a whole.</strong> The first version
-        /// asked whether a segment was covered by everything kept so far, and argued that a covered
-        /// segment could not be joining anything. It can: half on one artery and half on another is
-        /// covered by the pair and is the join between them, and dropping it took the network into
-        /// two pieces on twenty-one seeds in a thousand. Against a single road the argument holds —
-        /// this segment goes where that road already goes, so it joins nothing that road does not.
+        /// <strong>Trimmed against the network as a whole, which dropping could not be.</strong>
+        /// Dropping a segment covered by everything kept so far took the network into two pieces on
+        /// twenty-one seeds in a thousand, because half on one artery and half on another is covered
+        /// by the pair and is the join between them. Cutting has no such failure: what is kept is
+        /// the ground no road covers, and each kept piece begins and ends against the carriageway
+        /// that covered what was cut off it, so it is still joined to exactly what it was joined to.
+        /// The old rule — inside one single road — could only ever see a segment that retraced one
+        /// trunk end to end, which on a hilly map is none of them: measured on a hundred-metre map
+        /// at twenty metres of relief, 0.0% of the network was inside any one other segment and
+        /// 79.7% was inside the union of them.
+        /// </para>
+        /// <para>
+        /// <strong>Cut after the sweep and the profile cut with it.</strong> Each piece carries the
+        /// heights the whole segment was graded to, so a branch that starts against a trunk starts
+        /// at the height the trunk is at rather than at whatever the raw ground does there. Cutting
+        /// first and grading after would re-pin every cut end to the terrain and put a step where
+        /// the branch meets the road it came off.
+        /// </para>
+        /// <para>
+        /// <strong>Every bare stretch is kept, however short.</strong> Dropping the short ones was
+        /// the obvious tidying — a metre of centreline between two coverings is not much of a road —
+        /// and it is wrong, because a bare stretch is by definition ground no other road covers, so
+        /// dropping one leaves a hole. Seed 3 at twenty metres of relief came out in two pieces
+        /// exactly that way, with 1.000 m of clear ground between a 23 m path and the rest of the
+        /// network. The tidying is not worth a hole in the map.
         /// </para>
         /// <para>
         /// The junctions are settled before this and are left alone for the same reason: a junction
@@ -995,7 +1006,8 @@ namespace ArenaForge.Core
         /// <strong>It does not move the braiding figure</strong>, and that is worth saying because it
         /// looks as though it should. <see cref="CorridorLength"/> counts the cells the network
         /// covers, and a cell two segments cover is already counted once — so what this removes was
-        /// never in that total. What it removes is objects.
+        /// never in that total. What it removes is drawn road, and with it the second run of kerbing
+        /// and the second set of street furniture that were being laid along one strip of ground.
         /// </para>
         /// </remarks>
         static List<RoadSegment> Merge(List<RoadSegment> segments)
@@ -1004,47 +1016,129 @@ namespace ArenaForge.Core
 
             for (int i = 0; i < segments.Count; i++)
             {
-                if (!RidesOn(segments[i], kept))
-                {
-                    kept.Add(segments[i]);
-                }
+                Trim(segments[i], kept);
             }
 
             return kept;
         }
 
-        /// <summary>True when a segment lies inside the carriageway of one single kept segment.</summary>
+        /// <summary>
+        /// Adds the parts of a segment that no kept road already covers, as segments of their own.
+        /// </summary>
         /// <remarks>
-        /// <para>
-        /// Measured against the <em>kept</em> segment's width rather than the candidate's, because
-        /// the question is whether this road is already inside that one: a two-metre branch tucked
-        /// inside a four-metre artery is the artery, and an artery straddling a branch is not.
-        /// </para>
-        /// <para>
-        /// <strong>One kept segment, not the union of all of them, and that is what makes the drop
-        /// safe.</strong> Asking whether a segment is covered by the network as a whole lets it be
-        /// half on one artery and half on another — in which case it is not a duplicate at all, it
-        /// is the join between the two, and dropping it takes the network into two pieces. Twenty-one
-        /// seeds in a thousand did exactly that. Against a single road the question is the one worth
-        /// asking: this segment goes where that road already goes, so it joins nothing that road
-        /// does not join, so removing it cannot separate anything.
-        /// </para>
-        /// <para>
-        /// The ends are tested as well as the length, because nine tenths of a segment lying on a
-        /// road says nothing about where the last tenth reaches, and where it reaches is what it was
-        /// laid for.
-        /// </para>
+        /// One piece that spans the whole segment is the segment itself, added unchanged — so a
+        /// network with nothing to trim comes out of this exactly as it went in, object for object.
         /// </remarks>
-        static bool RidesOn(RoadSegment segment, List<RoadSegment> kept)
+        static void Trim(RoadSegment segment, List<RoadSegment> kept)
         {
-            if (kept.Count == 0 || segment.Points.Count < 2)
+            if (segment.Points.Count < 2)
             {
-                return false;
+                return;
             }
 
+            float[] along = ArcLengths(segment.Points);
+            float total = along[along.Length - 1];
+            if (!(total > 0f))
+            {
+                return;
+            }
+
+            List<Span> spans = Bare(segment, kept, along, total);
+
+            if (spans.Count == 1 && spans[0].From <= 0f && spans[0].To >= total)
+            {
+                kept.Add(segment);
+                return;
+            }
+
+            for (int i = 0; i < spans.Count; i++)
+            {
+                RoadSegment piece = Piece(
+                    segment, along, spans[i],
+                    spans.Count == 1
+                        ? segment.Id
+                        : segment.Id + "/part_" + i.ToString("00", CultureInfo.InvariantCulture));
+
+                if (piece != null)
+                {
+                    kept.Add(piece);
+                }
+            }
+        }
+
+        /// <summary>A stretch of one segment, measured along it in metres.</summary>
+        readonly struct Span
+        {
+            public Span(float from, float to)
+            {
+                From = from;
+                To = to;
+            }
+
+            public float From { get; }
+
+            public float To { get; }
+
+            public float Length => To - From;
+        }
+
+        /// <summary>
+        /// The stretches of a segment that no kept road covers, in order along it.
+        /// </summary>
+        /// <remarks>
+        /// Sampled at <see cref="RidingStep"/>, the same spacing the old riding test used and for
+        /// the same reasons.
+        /// </remarks>
+        /// <remarks>
+        /// <strong>A span reaches to the covered sample either side of it, not to the boundary
+        /// between them.</strong> A piece that stops where coverage began abuts the carriageway that
+        /// covered the rest and can miss it by up to half a step, which is a piece joined to nothing
+        /// — measured, one seed in sixty at twenty metres of relief came out in two pieces because
+        /// of it. Ending on the covered sample itself puts the piece's last point inside the road it
+        /// came off, so it is joined to exactly what it was joined to before the cut. The segment's
+        /// own two ends are its own and are never extended past them.
+        /// </remarks>
+        static List<Span> Bare(
+            RoadSegment segment, List<RoadSegment> kept, float[] along, float total)
+        {
+            var spans = new List<Span>();
+            var open = false;
+            var from = 0f;
+
+            var steps = Math.Max(1, (int)MathF.Ceiling(total / RidingStep));
+            float width = total / steps;
+
+            for (int i = 0; i < steps; i++)
+            {
+                float at = (i + 0.5f) * width;
+                bool covered = Covered(PointAt(segment.Points, along, at), kept);
+
+                if (!covered && !open)
+                {
+                    open = true;
+                    from = MathF.Max(0f, (i - 0.5f) * width);
+                }
+                else if (covered && open)
+                {
+                    open = false;
+                    spans.Add(new Span(from, MathF.Min(total, (i + 0.5f) * width)));
+                }
+            }
+
+            if (open)
+            {
+                spans.Add(new Span(from, total));
+            }
+
+            return spans;
+        }
+
+        /// <summary>True when a point lies inside the carriageway of any road already kept.</summary>
+        static bool Covered(Vec2 at, List<RoadSegment> kept)
+        {
             for (int i = 0; i < kept.Count; i++)
             {
-                if (RidesOn(segment, kept[i]))
+                if (Inside(at, kept[i], kept[i].Width * 0.5f))
                 {
                     return true;
                 }
@@ -1053,40 +1147,132 @@ namespace ArenaForge.Core
             return false;
         }
 
-        static bool RidesOn(RoadSegment segment, RoadSegment road)
+        /// <summary>
+        /// One stretch of a segment as a segment of its own, polyline and profile both cut to it,
+        /// or null when it has no length at all.
+        /// </summary>
+        static RoadSegment Piece(RoadSegment segment, float[] along, Span span, string id)
         {
-            float half = road.Width * 0.5f;
-
-            if (!Inside(segment.Points[0], road, half) ||
-                !Inside(segment.Points[segment.Points.Count - 1], road, half))
+            if (!(span.Length > 0f))
             {
-                return false;
+                return null;
             }
 
-            var samples = 0;
-            var covered = 0;
+            var points = new List<Vec2>(4) { PointAt(segment.Points, along, span.From) };
 
-            for (int i = 1; i < segment.Points.Count; i++)
+            for (int i = 1; i < segment.Points.Count - 1; i++)
             {
-                Vec2 a = segment.Points[i - 1];
-                Vec2 b = segment.Points[i];
-                float length = Vec2.Distance(a, b);
-                int steps = Math.Max(1, (int)(length / RidingStep));
-
-                for (int step = 0; step < steps; step++)
+                if (along[i] > span.From && along[i] < span.To)
                 {
-                    float t = (step + 0.5f) / steps;
-                    var at = new Vec2(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
-
-                    samples++;
-                    if (Inside(at, road, half))
-                    {
-                        covered++;
-                    }
+                    points.Add(segment.Points[i]);
                 }
             }
 
-            return samples > 0 && (float)covered / samples >= RidingShare;
+            points.Add(PointAt(segment.Points, along, span.To));
+
+            var piece = new RoadSegment(id, segment.Class, segment.Width, points);
+
+            return segment.Profile.Count > 1 ? piece.WithProfile(Cut(segment.Profile, span)) : piece;
+        }
+
+        /// <summary>The stretch of a graded profile that lies along one span of its own segment.</summary>
+        static RoadProfile Cut(RoadProfile profile, Span span)
+        {
+            float[] along = ArcLengths(profile.Points);
+            var points = new List<Vec2>();
+            var heights = new List<float>();
+
+            points.Add(PointAt(profile.Points, along, span.From));
+            heights.Add(HeightAt(profile, along, span.From));
+
+            for (int i = 0; i < profile.Count; i++)
+            {
+                if (along[i] > span.From && along[i] < span.To)
+                {
+                    points.Add(profile.Points[i]);
+                    heights.Add(profile.Heights[i]);
+                }
+            }
+
+            points.Add(PointAt(profile.Points, along, span.To));
+            heights.Add(HeightAt(profile, along, span.To));
+
+            return new RoadProfile(points.ToArray(), heights.ToArray());
+        }
+
+        /// <summary>How far along a polyline each of its points is, in metres.</summary>
+        static float[] ArcLengths(IReadOnlyList<Vec2> points)
+        {
+            var along = new float[points.Count];
+
+            for (int i = 1; i < points.Count; i++)
+            {
+                along[i] = along[i - 1] + Vec2.Distance(points[i - 1], points[i]);
+            }
+
+            return along;
+        }
+
+        /// <summary>The point a given distance along a polyline, clamped to its ends.</summary>
+        static Vec2 PointAt(IReadOnlyList<Vec2> points, float[] along, float at)
+        {
+            int last = points.Count - 1;
+
+            if (at <= 0f)
+            {
+                return points[0];
+            }
+
+            if (at >= along[last])
+            {
+                return points[last];
+            }
+
+            for (int i = 1; i <= last; i++)
+            {
+                if (along[i] < at)
+                {
+                    continue;
+                }
+
+                float run = along[i] - along[i - 1];
+                float t = run > 0f ? (at - along[i - 1]) / run : 0f;
+
+                return points[i - 1] + (points[i] - points[i - 1]) * t;
+            }
+
+            return points[last];
+        }
+
+        /// <summary>The height a given distance along a graded profile, clamped to its ends.</summary>
+        static float HeightAt(RoadProfile profile, float[] along, float at)
+        {
+            int last = profile.Count - 1;
+
+            if (at <= 0f)
+            {
+                return profile.Heights[0];
+            }
+
+            if (at >= along[last])
+            {
+                return profile.Heights[last];
+            }
+
+            for (int i = 1; i <= last; i++)
+            {
+                if (along[i] < at)
+                {
+                    continue;
+                }
+
+                float run = along[i] - along[i - 1];
+                float t = run > 0f ? (at - along[i - 1]) / run : 0f;
+
+                return profile.Heights[i - 1] + (profile.Heights[i] - profile.Heights[i - 1]) * t;
+            }
+
+            return profile.Heights[last];
         }
 
         static bool Inside(Vec2 point, RoadSegment road, float half)

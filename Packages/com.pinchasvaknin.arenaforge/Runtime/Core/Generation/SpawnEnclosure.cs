@@ -16,11 +16,12 @@ namespace ArenaForge.Core
     /// the second. A base is a place a team has fenced off, not a place the level stops.
     /// </para>
     /// <para>
-    /// <strong>The ring is a square inside the spawn band, not the band itself.</strong> A spawn
-    /// area runs the full width of the map, so fencing its outline would put three of its four
-    /// sides on top of the boundary. The square is the band's own short side, centred on the marker,
-    /// which keeps the whole ring on the flat pad the spawn is already graded to — so a panel never
-    /// has to step, and the ring stands at one height because the ground under it is one height.
+    /// <strong>The ring is the square inscribed in the spawn's graded disc.</strong> A spawn area
+    /// runs the full width of the map, so fencing its outline would put three of its four sides on
+    /// top of the boundary; and the ground held flat is the disc round the marker rather than the
+    /// band, so a square any larger than the disc's own inscribed one puts its four corners on the
+    /// slope outside the pad. Inscribed, every panel stands on ground held at one height, which is
+    /// why the ring can take a single elevation instead of stepping.
     /// </para>
     /// <para>
     /// <strong>It is broken on purpose, one gap a side.</strong> A closed ring is a pen. Each face
@@ -32,9 +33,11 @@ namespace ArenaForge.Core
     /// </para>
     /// <para>
     /// <strong>Two thirds of it is fence.</strong> Over forty seeds at the art pack's own panel
-    /// length, 67.4% of a ring's perimeter carries a panel, 17.2% is the four gates and the
-    /// remaining 15.9% is tail and corner handover — ground where no whole panel fits. So the ring
-    /// reads as an enclosure with ways out of it rather than as either a pen or a token.
+    /// length, 65.7% of a ring's perimeter carries a panel, 23.9% is the four gates and the
+    /// remaining 10.4% is tail and corner handover — ground where no whole panel fits. So the ring
+    /// reads as an enclosure with ways out of it rather than as either a pen or a token. The gate
+    /// is a fixed width and the ring is sized off the pad, so a smaller map makes the gaps a larger
+    /// share: what stays constant is that a person can always get out, which is the point of them.
     /// </para>
     /// <para>
     /// <strong>Nothing here blocks a road.</strong> A network is routed round structures and not
@@ -151,7 +154,7 @@ namespace ArenaForge.Core
             ref Rng stream)
         {
             float thickness = WallRun.ThickestSegment(palette);
-            Rect2 ring = Square(area, thickness);
+            Rect2 ring = Square(ArenaLayoutGenerator.SpawnPadRadius(area), area.Center, thickness);
 
             // One height for the whole ring, read at the middle of it. The pad the spawn stands on
             // is graded dead flat before this runs and the ring is inside the pad, so every point
@@ -173,24 +176,20 @@ namespace ArenaForge.Core
             }
         }
 
-        /// <summary>The square the ring runs round: the spawn band's short side, on its centre.</summary>
+        /// <summary>The square the ring runs round: the one inscribed in the spawn's graded disc.</summary>
         /// <remarks>
-        /// Held two thicknesses inside the band, which is what keeps the ring off the edge of the
-        /// map. A spawn band reaches the playfield boundary on its outer side — that is where a
-        /// spawn is — so a square on the band's own short side puts one of its four runs exactly
-        /// where <see cref="PerimeterFence"/> has already tiled the world's edge, and every panel
-        /// of that run is refused for standing in it. Two thicknesses clears the boundary's own
-        /// flush-seated strip and this ring's astride half. Measured over forty seeds, it took the
-        /// panels stood per pair of rings from 24 to 31 and the fenced share of a ring's own
-        /// perimeter from a half to two thirds — 67.4%, against 17.2% gates and 15.9% of tail and
-        /// corner handover that is gap because no panel fits it.
+        /// A square inscribed in a circle of radius r has a half-side of r over root two, and a
+        /// panel is seated astride its line, so half a thickness comes off on top to keep the art
+        /// itself on the pad rather than merely its centreline. That also settles what used to be a
+        /// separate problem: the band reaches the playfield boundary on its outer side, so a ring on
+        /// the band put one of its four runs exactly where <see cref="PerimeterFence"/> had already
+        /// tiled the world's edge and every panel of that run was refused. The inscribed square is
+        /// well inside it.
         /// </remarks>
-        static Rect2 Square(Rect2 area, float thickness)
+        static Rect2 Square(float radius, Vec2 centre, float thickness)
         {
             float half = MathF.Max(
-                thickness, MathF.Min(area.Width, area.Depth) * 0.5f - thickness * 2f);
-
-            Vec2 centre = area.Center;
+                thickness, radius * 0.70710678f - thickness * 0.5f);
 
             return new Rect2(centre.X - half, centre.Y - half, centre.X + half, centre.Y + half);
         }
