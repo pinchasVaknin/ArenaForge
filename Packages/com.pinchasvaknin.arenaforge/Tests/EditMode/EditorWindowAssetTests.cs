@@ -89,7 +89,7 @@ namespace ArenaForge.Tests
                 "map-mode", "map-slot", "controls", "seed-slot", "map-params", "generate",
                 "regenerate", "clear",
                 "save", "load", "map-export", "override-count", "selection", "guides", "roads",
-                "placement",
+                "placement", "swap-slot",
                 "item-mode", "building-slot", "building-controls", "building-seed-slot",
                 "building-params", "building-generate", "building-regenerate", "building-clear",
                 "floors", "export", "building-summary",

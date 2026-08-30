@@ -33,6 +33,7 @@
 
                 <ui:Label name="override-count" class="af-overlay-line" />
                 <ui:Label name="selection" class="af-overlay-line" />
+                <ui:VisualElement name="swap-slot" />
 
                 <ui:Toggle name="guides" label="Layout guides" tooltip="Draw the playfield, the lanes and the spawns in the scene." />
                 <ui:Toggle name="roads" label="Road network" tooltip="Draw the carriageways and junctions of the last generated network in the scene." />

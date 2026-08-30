@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using ArenaForge.Core;
@@ -127,6 +128,8 @@ namespace ArenaForge.Editor
         VisualElement _controls;
         Label _overrideCount;
         Label _selection;
+        VisualElement _swapRow;
+        DropdownField _swapField;
 
         ObjectField _buildingField;
         UnsignedLongField _buildingSeedField;
@@ -194,6 +197,7 @@ namespace ArenaForge.Editor
             BuildMapParams(root);
             BuildButtons(root);
             BuildGuidesToggle(root);
+            BuildSwapRow(root);
 
             BuildBuildingField(root);
             BuildBuildingSeedRow(root);
@@ -310,6 +314,219 @@ namespace ArenaForge.Editor
                 EditorPrefs.SetBool(PlacementPrefKey, _placement);
                 SceneView.RepaintAll();
             });
+        }
+
+        /// <summary>
+        /// The one control that writes a <see cref="OverrideOp.SwapAsset"/> override: pick another
+        /// catalog entry for the selected object and stand that instead.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// On the overlay rather than in the window, on the split in section 6 of
+        /// <c>ARCHITECTURE.md</c>: this acts on the thing you have just clicked on, and the half of
+        /// the screen your eyes are already in is the half it belongs in. It is a row rather than a
+        /// panel, so it does not put the same panel on both surfaces.
+        /// </para>
+        /// <para>
+        /// The op has round-tripped since the document model was written and nothing produced one.
+        /// What made it worth a control is length variants in a catalog: once a fence folder holds
+        /// the same wall at four lengths, "use the two-metre one here" is a thing somebody wants to
+        /// say by hand, and this is the override that says it.
+        /// </para>
+        /// </remarks>
+        void BuildSwapRow(VisualElement root)
+        {
+            _swapField = new DropdownField { style = { flexGrow = 1f } };
+
+            var button = new Button(Swap) { text = "Swap" };
+
+            _swapRow = new VisualElement { style = { flexDirection = FlexDirection.Row } };
+            _swapRow.Add(_swapField);
+            _swapRow.Add(button);
+
+            root.Q<VisualElement>("swap-slot").Add(_swapRow);
+        }
+
+        /// <remarks>
+        /// Hidden outright when there is nothing to choose between, which is most of the time: a
+        /// selection that is not a realised object, or a catalog with one entry that fits. A
+        /// dropdown holding exactly the thing already standing there is a control that does
+        /// nothing, and the overlay is short of room.
+        /// </remarks>
+        void RefreshSwap()
+        {
+            if (_swapRow == null)
+            {
+                return;
+            }
+
+            List<string> choices = SwapChoices(out string current);
+            bool worth = choices.Count > 1;
+
+            _swapRow.style.display = worth ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!worth)
+            {
+                return;
+            }
+
+            _swapField.choices = choices;
+            _swapField.SetValueWithoutNotify(current);
+        }
+
+        /// <summary>
+        /// Entries the selected object could be swapped for: everything in the catalog carrying all
+        /// of the tags it carries.
+        /// </summary>
+        /// <remarks>
+        /// All of its tags rather than its most specific one, because the tags are what the
+        /// generator selected it by in the first place. A crate tagged <c>cover</c> and
+        /// <c>cover/low</c> offers the other low cover and not a fence panel; a stone fence panel
+        /// offers the other stone fence panels, which is the length variants. Nothing here decides
+        /// what a sensible swap is — the catalog own tagging does, and that is the same answer
+        /// <c>Catalog.Query</c> gives the placer.
+        /// </remarks>
+        List<string> SwapChoices(out string current)
+        {
+            current = null;
+            var choices = new List<string>();
+
+            ArenaObjectRef reference = SelectedRef();
+            CatalogAsset asset = _map != null && _map.Realizer != null ? _map.Realizer.Catalog : null;
+            if (reference == null || asset == null)
+            {
+                return choices;
+            }
+
+            WorldDoc doc = _map.Document;
+            PlacedObject generated = doc != null ? Generated(doc, reference.StableId) : null;
+            if (generated == null || generated.Tags.Count == 0)
+            {
+                return choices;
+            }
+
+            current = SwappedTo(doc, reference.StableId) ?? generated.LogicalId;
+
+            var tags = new string[generated.Tags.Count];
+            for (int i = 0; i < generated.Tags.Count; i++)
+            {
+                tags[i] = generated.Tags[i];
+            }
+
+            IReadOnlyList<CatalogEntry> matches = asset.ToCatalog().Query(TagQuery.All(tags));
+            for (int i = 0; i < matches.Count; i++)
+            {
+                choices.Add(matches[i].LogicalId);
+            }
+
+            // The row it is standing as, even when the catalog no longer offers it: a dropdown that
+            // silently showed something else would read as a swap nobody made.
+            if (!choices.Contains(current))
+            {
+                choices.Insert(0, current);
+            }
+
+            return choices;
+        }
+
+        /// <remarks>
+        /// Choosing the entry the generator picked removes the override rather than writing one
+        /// that says nothing. An override list that grows an entry per undone decision is a list
+        /// whose count stops meaning "edits you have made".
+        /// </remarks>
+        void Swap()
+        {
+            ArenaObjectRef reference = SelectedRef();
+            if (reference == null || _swapField == null)
+            {
+                return;
+            }
+
+            string chosen = _swapField.value;
+            if (string.IsNullOrEmpty(chosen))
+            {
+                return;
+            }
+
+            Run($"swap {reference.StableId}", _map, map =>
+            {
+                WorldDoc doc = map.Document;
+                ApplySwap(doc, reference.StableId, chosen);
+                map.SetDocument(doc);
+                return map.Realize();
+            });
+        }
+
+        /// <summary>
+        /// Puts one swap on a document: upserts the override, or removes it when the choice is what
+        /// the generator picked in the first place.
+        /// </summary>
+        /// <remarks>
+        /// Internal and separate from the control that calls it, on the same grounds as the rest of
+        /// the override bookkeeping in this assembly: which override an action upserts and which one
+        /// it takes away are rules with something to get wrong, and they are worth testing without a
+        /// scene, a selection and a dropdown in the way.
+        /// </remarks>
+        internal static void ApplySwap(WorldDoc doc, string stableId, string chosen)
+        {
+            PlacedObject generated = Generated(doc, stableId);
+
+            for (int i = doc.Overrides.Count - 1; i >= 0; i--)
+            {
+                EditOverride edit = doc.Overrides[i];
+                if (edit.Op == OverrideOp.SwapAsset &&
+                    string.Equals(edit.TargetId, stableId, StringComparison.Ordinal))
+                {
+                    doc.Overrides.RemoveAt(i);
+                }
+            }
+
+            if (generated != null &&
+                !string.Equals(chosen, generated.LogicalId, StringComparison.Ordinal))
+            {
+                doc.Overrides.Add(EditOverride.SwapAsset(stableId, chosen));
+            }
+        }
+
+        ArenaObjectRef SelectedRef()
+        {
+            GameObject selected = Selection.activeGameObject;
+            if (selected == null || _map == null)
+            {
+                return null;
+            }
+
+            ArenaObjectRef reference = selected.GetComponentInParent<ArenaObjectRef>(true);
+            return reference != null && reference.GetComponentInParent<ArenaMap>(true) == _map
+                ? reference
+                : null;
+        }
+
+        static PlacedObject Generated(WorldDoc doc, string stableId)
+        {
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                if (string.Equals(doc.GeneratedObjects[i].StableId, stableId, StringComparison.Ordinal))
+                {
+                    return doc.GeneratedObjects[i];
+                }
+            }
+
+            return null;
+        }
+
+        static string SwappedTo(WorldDoc doc, string stableId)
+        {
+            for (int i = 0; i < doc.Overrides.Count; i++)
+            {
+                EditOverride edit = doc.Overrides[i];
+                if (edit.Op == OverrideOp.SwapAsset &&
+                    string.Equals(edit.TargetId, stableId, StringComparison.Ordinal))
+                {
+                    return edit.LogicalId;
+                }
+            }
+
+            return null;
         }
 
         void BuildBuildingField(VisualElement root)
@@ -944,6 +1161,7 @@ namespace ArenaForge.Editor
             Set(_overrideCount, _map == null ? "No map in the open scenes." : OverrideText());
             Set(_selection, SelectionText());
             Set(_buildingSummary, BuildingText());
+            RefreshSwap();
         }
 
         static void Set(Label label, string text)

@@ -44,6 +44,30 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
+- **`SwapAsset` has a control.** The op has resolved and round-tripped since the document model
+  was written and nothing ever produced one. Now a dropdown and a `Swap`
+  button on the overlay, beside the selection line: pick another catalog entry for the object you
+  have clicked on and stand that instead, with the pose left exactly where it was.
+
+  **What goes in the list is what the catalog says fits.** Every entry carrying *all* of the tags
+  the object carries — a crate tagged `cover` and `cover/low` offers the other low cover and not a
+  fence panel; a stone fence panel offers the other stone fence panels, which is the length variants
+  the closing rule above was built for. Nothing in the editor decides what a sensible swap is; the
+  tagging does, and it is the same answer `Catalog.Query` gives the placer. The row is hidden
+  outright when there is nothing to choose between, which is most of the time.
+
+  **Choosing the entry the generator picked removes the override** rather than writing one that says
+  nothing. An override list that grew an entry per undone decision is a list whose count stops
+  meaning "edits you have made".
+
+  On the overlay rather than in the window, on the split in `ARCHITECTURE.md` section 6: it acts on
+  what you have just clicked on. It is a row and not a panel, so no panel appears on both surfaces.
+
+  The document rule is `ArenaForgeOverlay.ApplySwap`, internal and tested on its own — the grounds
+  `InternalsVisibleTo` was already added for. Four tests: a swap writes one override and moves
+  nothing; two swaps leave one; swapping back removes it; and a swap and a move on one object both
+  hold, the pose from the move and the art from the swap.
+
 - **The scene view says whether a prop may stand where it is, and which rule refuses it.** A
   `Placement` toggle on the overlay beside `Layout guides` and `Road network`, and
   `ArenaPlacementGuides` to draw it: the grid cells under a selected prop shaded green or red, with

@@ -241,9 +241,12 @@ An L-shaped or asymmetric arena would need lanes to be a described route graph r
 subdivision. That is the change most likely to be worth making first, because lane-band symmetry is
 what makes different seeds feel more alike than they look.
 
-**`SwapAsset` has no editor UI.** The override op exists, `Resolve()` applies it, and it round-trips
-through JSON — but nothing in the tool window produces one. Swapping which prefab a slot uses is a
-right-click on a realised object away; it was not asked for.
+**`SwapAsset` swaps one object at a time, and only for art the catalog says fits.** The overlay
+offers the entries carrying all of the selected object's tags, which is the right list for changing
+a crate for another crate or a fence panel for a longer one. What it cannot do is swap a selection
+of objects at once, or offer art the tagging does not already group together — filing a piece under
+a second tag is how you say two things are interchangeable, and that is the catalog's job rather
+than the dropdown's.
 
 **Edit capture only runs while the tool window is open.** This is a deliberate trade rather than an
 oversight — see ARCHITECTURE.md section 6 — but it does mean deleting a realised object with the

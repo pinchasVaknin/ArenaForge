@@ -91,6 +91,148 @@ namespace ArenaForge.Tests
             };
         }
 
+        // --- swapping the art under an object -------------------------------------------------
+
+        /// <remarks>
+        /// The op has round-tripped since the document model was written and until now nothing
+        /// produced one, so these are the first tests of what writing one means rather than of
+        /// what resolving one does — <see cref="ResolveTests"/> has the latter.
+        /// </remarks>
+        [Test]
+        public void SwappingAnObjectWritesOneSwapOverride()
+        {
+            _map.Generate();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            string other = OtherCover(cover);
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, other);
+
+            Assert.That(doc.Overrides.Count, Is.EqualTo(1));
+            Assert.That(doc.Overrides[0].Op, Is.EqualTo(OverrideOp.SwapAsset));
+            Assert.That(doc.Overrides[0].TargetId, Is.EqualTo(cover.StableId));
+            Assert.That(doc.Overrides[0].LogicalId, Is.EqualTo(other));
+
+            _map.SetDocument(doc);
+            ResolvedWorld resolved = _map.Realize();
+
+            foreach (PlacedObject placed in resolved.Objects)
+            {
+                if (placed.StableId == cover.StableId)
+                {
+                    Assert.That(placed.LogicalId, Is.EqualTo(other));
+                    Assert.That(placed.Pose.Position, Is.EqualTo(cover.Pose.Position),
+                        "a swap carries an entry, not a pose");
+                    return;
+                }
+            }
+
+            Assert.Fail($"{cover.StableId} is not in the resolved map");
+        }
+
+        /// <remarks>
+        /// Two swaps of one object are one decision changed twice, not two edits. An override list
+        /// that grew an entry per change would make its own count stop meaning anything.
+        /// </remarks>
+        [Test]
+        public void SwappingTwiceLeavesOneOverrideRatherThanTwo()
+        {
+            _map.Generate();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, OtherCover(cover));
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, "structure/house/small_01");
+
+            Assert.That(doc.Overrides.Count, Is.EqualTo(1));
+            Assert.That(doc.Overrides[0].LogicalId, Is.EqualTo("structure/house/small_01"));
+        }
+
+        /// <remarks>
+        /// Choosing the entry the generator picked is undoing the swap, not making another one. A
+        /// no-op override left behind would show in the count as an edit the user did not make and
+        /// would survive a regeneration as one.
+        /// </remarks>
+        [Test]
+        public void SwappingBackToTheGeneratedEntryRemovesTheOverride()
+        {
+            _map.Generate();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, OtherCover(cover));
+            Assert.That(doc.Overrides.Count, Is.EqualTo(1));
+
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, cover.LogicalId);
+
+            Assert.That(doc.Overrides, Is.Empty);
+        }
+
+        /// <remarks>
+        /// A swap and a move are different edits of one object and both survive: the pose comes from
+        /// the move, the art from the swap. Nothing in the resolution says so on its own — the two
+        /// ops are applied in list order — so it is worth stating.
+        /// </remarks>
+        [Test]
+        public void ASwapAndAMoveOnOneObjectBothHold()
+        {
+            _map.Generate();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            var moved = new CorePose(
+                cover.Pose.Position + new CoreVec3(2f, 0f, 0f),
+                cover.Pose.Rotation,
+                cover.Pose.Scale);
+
+            string other = OtherCover(cover);
+            doc.Overrides.Add(EditOverride.Move(cover.StableId, moved));
+            ArenaForgeOverlay.ApplySwap(doc, cover.StableId, other);
+
+            Assert.That(doc.Overrides.Count, Is.EqualTo(2));
+
+            _map.SetDocument(doc);
+            ResolvedWorld resolved = _map.Realize();
+
+            foreach (PlacedObject placed in resolved.Objects)
+            {
+                if (placed.StableId == cover.StableId)
+                {
+                    Assert.That(placed.LogicalId, Is.EqualTo(other));
+                    Assert.That(placed.Pose.Position, Is.EqualTo(moved.Position));
+                    return;
+                }
+            }
+
+            Assert.Fail($"{cover.StableId} is not in the resolved map");
+        }
+
+        /// <summary>The cover entry in this catalog that is not the one an object stands as.</summary>
+        /// <remarks>
+        /// Chosen against the object rather than named outright. Which of the two the generator
+        /// picks for the first piece of cover is a fact about the seed, and a test that named one
+        /// would be asserting the seed as much as the swap — and would turn into a no-op the day
+        /// the pick changed, which is what the first version of these tests did.
+        /// </remarks>
+        static string OtherCover(PlacedObject cover) =>
+            cover.LogicalId == "cover/low/crate_wood_01"
+                ? "cover/high/barrier_concrete_01"
+                : "cover/low/crate_wood_01";
+
+        static PlacedObject FirstCover(WorldDoc doc)
+        {
+            foreach (PlacedObject placed in doc.GeneratedObjects)
+            {
+                if (placed.StableId.Contains("/cover_") && !CoverPlacer.IsSocketProp(placed.StableId))
+                {
+                    return placed;
+                }
+            }
+
+            Assert.Fail("the generated map has no cover in it");
+            return null;
+        }
+
         // --- the core loop ------------------------------------------------------------------
 
         [Test]

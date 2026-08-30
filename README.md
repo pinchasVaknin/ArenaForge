@@ -350,8 +350,8 @@ following ground nothing renders.
 - **The playfield is a rectangle divided into parallel lane bands.** This is the limitation I would
   fix first, because that symmetry is what makes different seeds feel more alike than they look. It
   needs lanes to become a described route graph rather than a band subdivision.
-- **`SwapAsset` has no UI.** The override op exists and round-trips; nothing in the window produces
-  one.
+- **`SwapAsset` is one object at a time.** The overlay swaps the selected object for another
+  catalog entry carrying the same tags; swapping a whole selection at once is not there.
 - **Edit capture is editor-only and window-scoped.** Deleting a realised object with the window
   closed goes unrecorded, and it returns on the next regeneration.
 - **Regeneration rebuilds every GameObject** rather than diffing the resolved list against the
