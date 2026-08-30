@@ -256,6 +256,15 @@ namespace ArenaForge.Editor
         /// wall than one sitting on the floor of it. A model with nothing to measure starts at its
         /// own origin, which is where an empty transform's marker would have gone anyway.
         /// </remarks>
+        /// <remarks>
+        /// <strong>Divided by the model's own scale, because this is a local position and the
+        /// measurement is not.</strong> <see cref="CatalogSync.TryMeasure"/> answers in the space
+        /// the art stands in, root scale and all — which is what a catalog row wants and the exact
+        /// opposite of what a <c>localPosition</c> under that same root wants. On a house scaled
+        /// three times up, the undivided figure put the marker a metre under its own floor. The
+        /// marker's own box is scaled by the root too, so its half height needs no dividing: it is
+        /// already in the same local units the position is written in.
+        /// </remarks>
         static Vector3 Start(GameObject model)
         {
             if (!CatalogSync.TryMeasure(model, out Bounds bounds))
@@ -263,9 +272,17 @@ namespace ArenaForge.Editor
                 return new Vector3(0f, MarkerHeight * 0.5f, 0f);
             }
 
+            Vector3 scale = model.transform.localScale;
+
             return new Vector3(
-                bounds.center.x, bounds.min.y + MarkerHeight * 0.5f, bounds.center.z);
+                Over(bounds.center.x, scale.x),
+                Over(bounds.min.y, scale.y) + MarkerHeight * 0.5f,
+                Over(bounds.center.z, scale.z));
         }
+
+        /// <summary>A measurement back in local units, or nothing where the scale is flat.</summary>
+        static float Over(float measured, float scale) =>
+            Mathf.Approximately(scale, 0f) ? 0f : measured / scale;
     }
 
     /// <summary>

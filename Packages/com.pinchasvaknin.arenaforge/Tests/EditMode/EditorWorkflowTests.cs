@@ -80,7 +80,8 @@ namespace ArenaForge.Tests
             AssetDatabase.DeleteAsset(TempFolder);
         }
 
-        CatalogAsset.Row Row(string logicalId, string[] tags, Vector2 footprint, float height)
+        CatalogAsset.Row Row(
+            string logicalId, string[] tags, Vector2 footprint, float height, float baseOffset = 0f)
         {
             var source = GameObject.CreatePrimitive(PrimitiveType.Cube);
             string path = $"{TempFolder}/{logicalId.Replace('/', '_')}.prefab";
@@ -93,6 +94,7 @@ namespace ArenaForge.Tests
                 Tags = tags,
                 FootprintSize = footprint,
                 Height = height,
+                BaseOffset = baseOffset,
                 Weight = 1f,
                 Prefab = prefab,
             };
@@ -239,6 +241,58 @@ namespace ArenaForge.Tests
                 landed.Position.Y);
         }
 
+        /// <remarks>
+        /// <para>
+        /// Flush on the ground plane says nothing about how high two pieces stand, and a wall lined
+        /// up with the wall beside it but a step above it is not lined up with anything. What has to
+        /// match is the <em>undersides</em>, which is the pivot less the art's own
+        /// <see cref="CatalogEntry.BaseOffset"/> — so the two pieces here are modelled differently
+        /// on purpose: one on its base and one around its centre, half a metre up.
+        /// </para>
+        /// <para>
+        /// The neighbour is stood five metres in the air, well clear of the ground the drop would
+        /// otherwise fall to, so a pass that came out level with it cannot have got there by
+        /// standing on anything.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADroppedObjectLevelsItsUndersideWithWhatItLinedUpAgainst()
+        {
+            GenerateAndWatch();
+            WorldDoc doc = _map.Document;
+            PlacedObject cover = FirstCover(doc);
+
+            ArenaLayout layout = ArenaLayout.Build(_map.BuildParams());
+            Vec2 open = layout.Grid.Snap(new Vec2(cover.Pose.Position.X, cover.Pose.Position.Z));
+
+            // Modelled around its centre, so its pivot stands half a metre over its underside.
+            const float Offset = 0.5f;
+            const float Pivot = 5f;
+
+            CatalogAsset.Row plinth = AddRow(
+                "cover/high/plinth_01", new[] { "cover", "cover/high" },
+                new Vector2(2f, 2f), 1f, Offset);
+
+            _capture.RecordAdd(
+                plinth.LogicalId,
+                CorePose.At(new CoreVec3(open.X, Pivot, open.Y)),
+                plinth.Tags);
+
+            // Just off flush against the plinth's high-X face, and a long way below it.
+            MoveInScene(
+                cover.StableId,
+                CorePose.At(new CoreVec3(open.X + 1.7f, 0f, open.Y)));
+
+            Tick();
+
+            CorePose landed = PoseOf(_map, cover.StableId);
+
+            // The crate is modelled on its own base, so its pivot is its underside.
+            Assert.That(landed.Position.Y, Is.EqualTo(Pivot - Offset).Within(1e-3f),
+                $"a crate lined up against a plinth whose underside is at {Pivot - Offset} came to " +
+                $"rest at {landed.Position.Y}");
+        }
+
         // --- swapping the art under an object -------------------------------------------------
 
         /// <remarks>
@@ -370,9 +424,10 @@ namespace ArenaForge.Tests
         /// <summary>
         /// Adds a row to the catalog after the map was generated, so nothing was generated off it.
         /// </summary>
-        CatalogAsset.Row AddRow(string logicalId, string[] tags, Vector2 footprint, float height)
+        CatalogAsset.Row AddRow(
+            string logicalId, string[] tags, Vector2 footprint, float height, float baseOffset = 0f)
         {
-            CatalogAsset.Row row = Row(logicalId, tags, footprint, height);
+            CatalogAsset.Row row = Row(logicalId, tags, footprint, height, baseOffset);
             var rows = new List<CatalogAsset.Row>(_catalog.Rows) { row };
             _catalog.SetRows(rows);
             return row;

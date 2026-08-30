@@ -65,7 +65,13 @@ namespace ArenaForge.Core
         /// bare ground is not a gap anybody can see or stand in. Sized to be smaller than any art and
         /// larger than the arithmetic.
         /// </remarks>
-        const float EndTolerance = 1e-4f;
+        /// <remarks>
+        /// Public because a caller sizing a run to its own art has to stay under it: ground left
+        /// bare by less than this is ground <see cref="CloseGaps"/> will not try to fill, and a
+        /// caller that leaves more gets a whole panel laid across a sliver. See
+        /// <c>SpawnEnclosure.FitSlack</c>.
+        /// </remarks>
+        public const float EndTolerance = 1e-4f;
 
         /// <summary>Where a piece sits across a run, given the face and the art's rotated footprint.</summary>
         public delegate float Seat(Face face, Rect2 local);

@@ -32,12 +32,19 @@ namespace ArenaForge.Core
     /// lays anywhere, which is the width it already believes a person moves through.
     /// </para>
     /// <para>
-    /// <strong>Two thirds of it is fence.</strong> Over forty seeds at the art pack's own panel
-    /// length, 65.7% of a ring's perimeter carries a panel, 23.9% is the four gates and the
-    /// remaining 10.4% is tail and corner handover — ground where no whole panel fits. So the ring
-    /// reads as an enclosure with ways out of it rather than as either a pen or a token. The gate
-    /// is a fixed width and the ring is sized off the pad, so a smaller map makes the gaps a larger
-    /// share: what stays constant is that a person can always get out, which is the point of them.
+    /// <strong>Three quarters of it is fence, and every gap in it is meant.</strong> The ring is
+    /// sized to a whole number of panels and each gate takes a whole slot, so over forty seeds every
+    /// map stands the same 24 panels: 74.5% of a ring's perimeter carries one, 24.8% is the four
+    /// gates and 0.7% is the corner handover. It was 65.7% against 10.4% of tail when the ring was
+    /// sized to the pad instead of to the art — a face whose length is not a whole number of panels
+    /// ends in a stretch too short for anything in the palette, and on a ring this small each of
+    /// those four ends is a visible hole.
+    /// </para>
+    /// <para>
+    /// The gate is one panel wide and the ring is four panels a side, so the openings are a quarter
+    /// of it. That share is a consequence of the pad's size rather than a target: on a bigger pad
+    /// the ring takes more slots and the same four gates are a smaller fraction of it. What does not
+    /// change is that every side has exactly one way through.
     /// </para>
     /// <para>
     /// <strong>Nothing here blocks a road.</strong> A network is routed round structures and not
@@ -60,14 +67,27 @@ namespace ArenaForge.Core
         /// <summary>Label the stream this stage's art is drawn from is forked under.</summary>
         const string StreamLabel = "spawn/fence";
 
-        /// <summary>How much of a face a gate may be placed in, measured from its middle.</summary>
+        /// <summary>The diagonal of a unit square, halved: the inscribed square's half-side per unit radius.</summary>
+        const float InscribedHalf = 0.70710678f;
+
+        /// <summary>How much longer than its panels a face is made, in metres.</summary>
         /// <remarks>
-        /// Three fifths. A gate anywhere in the outer fifths is a gate at a corner, which is both
-        /// hard to see from inside the ring and the place two runs are already handing panels over
-        /// — and a corner that is a gap on one face and a panel on the other reads as a mistake
-        /// rather than as a way out.
+        /// <para>
+        /// A face exactly as long as the panels that fill it leaves the walk's own "does the next
+        /// one still fit" test sitting on the boundary, where the last few bits of an accumulated
+        /// cursor decide it — and it decided against about two slots a map. A hair of slack settles
+        /// it in favour of the panel.
+        /// </para>
+        /// <para>
+        /// <strong>Half of <see cref="WallRun.EndTolerance"/>, and the ceiling is the point.</strong>
+        /// Slack the run considers bare ground is slack the closing pass fills, and it fills a
+        /// sliver with a whole panel: at a millimetre it laid a second panel a millimetre along the
+        /// first on all four faces of both rings — eight panels stacked on eight others. Under the
+        /// tolerance the residue is not a gap at all and nothing is laid across it. The floor is the
+        /// cursor's own arithmetic, some twenty times smaller again.
+        /// </para>
         /// </remarks>
-        const float GateShare = 0.6f;
+        const float FitSlack = WallRun.EndTolerance * 0.5f;
 
         /// <summary>
         /// Fences both spawns and returns every segment it stood up, in generation order, so the
@@ -154,7 +174,17 @@ namespace ArenaForge.Core
             ref Rng stream)
         {
             float thickness = WallRun.ThickestSegment(palette);
-            Rect2 ring = Square(ArenaLayoutGenerator.SpawnPadRadius(area), area.Center, thickness);
+            float panel = WallRun.ShortestRun(palette);
+            float over = thickness * 0.5f + WallRun.CornerSlack;
+
+            int slots = Slots(ArenaLayoutGenerator.SpawnPadRadius(area), thickness, over, panel);
+            if (slots < 1)
+            {
+                // The pad is smaller than one panel. Nothing can be built here that is a ring.
+                return;
+            }
+
+            Rect2 ring = Square(area.Center, slots * panel + over + FitSlack);
 
             // One height for the whole ring, read at the middle of it. The pad the spawn stands on
             // is graded dead flat before this runs and the ring is inside the pad, so every point
@@ -162,7 +192,7 @@ namespace ArenaForge.Core
             // approximation of it.
             float elevation = terrain.HeightAt(ring.Center);
 
-            List<Rect2> gates = Gates(ring, doc.Parameters.PathWidth, ref stream);
+            List<Rect2> gates = Gates(ring, over, panel, slots, thickness, ref stream);
             List<WallRun.Face> faces = Edges(ring, thickness);
             var stood = 0;
 
@@ -176,49 +206,85 @@ namespace ArenaForge.Core
             }
         }
 
-        /// <summary>The square the ring runs round: the one inscribed in the spawn's graded disc.</summary>
+        /// <summary>
+        /// How many whole panels fit along one face of the largest ring the pad will take.
+        /// </summary>
         /// <remarks>
-        /// A square inscribed in a circle of radius r has a half-side of r over root two, and a
-        /// panel is seated astride its line, so half a thickness comes off on top to keep the art
-        /// itself on the pad rather than merely its centreline. That also settles what used to be a
-        /// separate problem: the band reaches the playfield boundary on its outer side, so a ring on
-        /// the band put one of its four runs exactly where <see cref="PerimeterFence"/> had already
-        /// tiled the world's edge and every panel of that run was refused. The inscribed square is
-        /// well inside it.
+        /// <para>
+        /// A square inscribed in a circle of radius r has a side of r times root two, and a panel is
+        /// seated astride its line, so half a thickness comes off to keep the art itself on the pad
+        /// rather than merely its centreline. What is left is divided by the shortest panel on
+        /// offer, and the remainder is thrown away rather than left as bare ground.
+        /// </para>
+        /// <para>
+        /// <strong>Sizing the ring to the art is what makes it a ring rather than four fences.</strong>
+        /// A face whose length is not a whole number of panels ends in a stretch too short for
+        /// anything in the palette, and the closing pass cannot fill it either — four corners of
+        /// ragged nothing, on a ring small enough that each one is a visible hole.
+        /// </para>
         /// </remarks>
-        static Rect2 Square(float radius, Vec2 centre, float thickness)
+        static int Slots(float radius, float thickness, float over, float panel)
         {
-            float half = MathF.Max(
-                thickness, radius * 0.70710678f - thickness * 0.5f);
+            if (!(panel > 0f))
+            {
+                return 0;
+            }
+
+            float widest = radius * InscribedHalf * 2f - thickness;
+
+            return (int)MathF.Floor((widest - over - FitSlack) / panel);
+        }
+
+        /// <summary>The square of a given side, on a point.</summary>
+        static Rect2 Square(Vec2 centre, float side)
+        {
+            float half = side * 0.5f;
 
             return new Rect2(centre.X - half, centre.Y - half, centre.X + half, centre.Y + half);
         }
 
-        /// <summary>One gate per face, each in the middle <see cref="GateShare"/> of its own side.</summary>
+        /// <summary>One gate per face, each taking a whole panel slot of its own side.</summary>
         /// <remarks>
+        /// <para>
+        /// <strong>On the panel grid, not anywhere along the face.</strong> A gate dropped at an
+        /// arbitrary offset splits its run into two stretches that are each a fraction of a panel
+        /// too long, so a face gives up ground at the gate as well as at the gate itself. Taking a
+        /// whole slot leaves the rest of the face an exact number of panels, and every one of them
+        /// stands.
+        /// </para>
+        /// <para>
+        /// <strong>An inner slot wherever there is a choice.</strong> A gate in an end slot is a
+        /// gate at a corner, which is hard to see from inside the ring and is where two runs are
+        /// already handing panels over — a corner that is a gap on one face and a panel on the
+        /// other reads as a mistake rather than as a way out.
+        /// </para>
+        /// <para>
         /// The four draws are taken in face order and always all four, so the stream reads the same
-        /// whatever the tiling then makes of them — a gate that happens to fall where no panel would
-        /// have gone still costs its draw.
+        /// whatever the tiling then makes of them.
+        /// </para>
         /// </remarks>
-        static List<Rect2> Gates(Rect2 ring, float width, ref Rng stream)
+        static List<Rect2> Gates(
+            Rect2 ring, float over, float panel, int slots, float thickness, ref Rng stream)
         {
-            float half = width * 0.5f;
-            float insetX = ring.Width * (1f - GateShare) * 0.5f;
-            float insetZ = ring.Depth * (1f - GateShare) * 0.5f;
-
-            float lowZ = stream.NextRange(ring.MinX + insetX, ring.MaxX - insetX);
-            float highX = stream.NextRange(ring.MinZ + insetZ, ring.MaxZ - insetZ);
-            float highZ = stream.NextRange(ring.MinX + insetX, ring.MaxX - insetX);
-            float lowX = stream.NextRange(ring.MinZ + insetZ, ring.MaxZ - insetZ);
+            // Each face runs from its own corner, and two of the four start a handover in — see
+            // Edges. A gate has to be measured from the same place its panels are.
+            float lowZ = ring.MinX + Slot(slots, ref stream) * panel;
+            float highX = ring.MinZ + Slot(slots, ref stream) * panel;
+            float highZ = ring.MinX + over + Slot(slots, ref stream) * panel;
+            float lowX = ring.MinZ + over + Slot(slots, ref stream) * panel;
 
             return new List<Rect2>(WallRun.FaceCount)
             {
-                new Rect2(lowZ - half, ring.MinZ - half, lowZ + half, ring.MinZ + half),
-                new Rect2(ring.MaxX - half, highX - half, ring.MaxX + half, highX + half),
-                new Rect2(highZ - half, ring.MaxZ - half, highZ + half, ring.MaxZ + half),
-                new Rect2(ring.MinX - half, lowX - half, ring.MinX + half, lowX + half),
+                new Rect2(lowZ, ring.MinZ - thickness, lowZ + panel, ring.MinZ + thickness),
+                new Rect2(ring.MaxX - thickness, highX, ring.MaxX + thickness, highX + panel),
+                new Rect2(highZ, ring.MaxZ - thickness, highZ + panel, ring.MaxZ + thickness),
+                new Rect2(ring.MinX - thickness, lowX, ring.MinX + thickness, lowX + panel),
             };
         }
+
+        /// <summary>Which slot of a face its gate takes.</summary>
+        static int Slot(int slots, ref Rng stream) =>
+            slots >= 3 ? stream.NextRange(1, slots - 1) : stream.NextRange(0, slots);
 
         /// <summary>
         /// The four sides of the ring as runs facing out of it, going round like a pinwheel so each

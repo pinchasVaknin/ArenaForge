@@ -130,19 +130,23 @@ namespace ArenaForge.Tests
         /// <remarks>
         /// <para>
         /// The convention the whole import has to be built around, pinned here because nothing else
-        /// states it. <c>CatalogSync</c> measures a prefab in its <em>own root space</em>, so a scale
-        /// on the root itself cancels out and is not counted — while <c>WorldRealizer</c>
-        /// instantiates that prefab and the root scale plainly does apply to what stands in the map.
+        /// states it. <c>CatalogSync.Extent</c> gathers a prefab's corners in its <em>own root
+        /// space</em>, which is the one space the root's own scale is invisible in — the root's
+        /// <c>worldToLocalMatrix</c> carries its inverse and every child's <c>localToWorldMatrix</c>
+        /// carries it, so the two cancel. It is applied when the box is closed.
         /// </para>
         /// <para>
-        /// So a row measured off a prefab with a scaled root says one size and the map stands at
-        /// another. That is a fault older than this file and wider than it; what it settles here is
-        /// that a size correction cannot live on the variant's root transform, because the catalog
-        /// would never see it.
+        /// <strong>This test used to assert the opposite, and the reason it gave was wrong.</strong>
+        /// It said the root scale was not counted "though a realised instance carries it" — and a
+        /// realised instance did not carry it: <c>WorldRealizer</c> assigned <c>localScale</c>
+        /// outright, so the prefab's own root scale was discarded at realisation. The row and the
+        /// map therefore agreed, and both disagreed with the art. Counting it in the measurement
+        /// while the realiser still overwrote it would have broken the one agreement there was,
+        /// which is why the fix is in both places at once.
         /// </para>
         /// </remarks>
         [Test]
-        public void TheMeasurementIgnoresTheRootsOwnScale()
+        public void TheMeasurementCountsTheRootsOwnScale()
         {
             GameObject source = SourcePrefab("Rooted", 1f);
 
@@ -156,8 +160,44 @@ namespace ArenaForge.Tests
             Object.DestroyImmediate(instance);
 
             Assert.That(CatalogSync.TryMeasureArt(scaled, out Bounds after), Is.True);
-            Assert.That(after.size.x, Is.EqualTo(1f).Within(1e-4f),
-                "the root scale is not counted, though a realised instance carries it");
+            Assert.That(after.size.x, Is.EqualTo(2f).Within(1e-4f),
+                "a prefab scaled to twice its size measures twice as wide");
+        }
+
+        /// <remarks>
+        /// The other half, asserted where it can be seen: the art stands in the map at the size the
+        /// row says it is. Without it the two halves of the fix could drift apart again and only one
+        /// of them would fail.
+        /// </remarks>
+        [Test]
+        public void ARealisedInstanceStandsAtTheSizeItsRowWasMeasuredAt()
+        {
+            GameObject source = SourcePrefab("Standing", 1f);
+
+            GameObject authored = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            authored.transform.localScale = Vector3.one * 2f;
+            GameObject scaled = PrefabUtility.SaveAsPrefabAsset(
+                authored, $"{TempFolder}/Standing_scaled.prefab");
+            Object.DestroyImmediate(authored);
+
+            Assert.That(CatalogSync.TryMeasureArt(scaled, out Bounds measured), Is.True);
+
+            GameObject realised = (GameObject)PrefabUtility.InstantiatePrefab(scaled);
+            try
+            {
+                // What WorldRealizer does to a pose of scale one, which is every object but a
+                // stretched wall run.
+                Vector3 own = realised.transform.localScale;
+                realised.transform.localScale = new Vector3(own.x * 1f, own.y * 1f, own.z * 1f);
+
+                Assert.That(CatalogSync.TryMeasureArt(realised, out Bounds stood), Is.True);
+                Assert.That(stood.size.x, Is.EqualTo(measured.size.x).Within(1e-4f),
+                    $"the row says {measured.size.x} across and the instance stands {stood.size.x}");
+            }
+            finally
+            {
+                Object.DestroyImmediate(realised);
+            }
         }
 
         // --- the variant ---------------------------------------------------------------------

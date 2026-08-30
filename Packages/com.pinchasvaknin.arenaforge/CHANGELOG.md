@@ -234,6 +234,66 @@ All notable changes to this package are documented here. The format follows
   change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
   than in another number.
 
+- **A spawn's fence ring is sized to the art, so the only gaps in it are the gates.** The ring was
+  sized to the pad and the gates dropped wherever a draw put them, which left every face ending in a
+  stretch too short for any panel in the palette and split the rest into offcuts. On a ring four
+  panels a side, each of those is a visible hole. The ring is now a whole number of panels and each
+  gate takes a whole slot, so over forty seeds every map stands the same **24 panels: 74.5% of the
+  perimeter is fence, 24.8% is the four gates and 0.7% is corner handover**, against 65.7 / 23.9 /
+  10.4 before.
+
+  **A face is made one `FitSlack` longer than its panels, and the ceiling on that is the point.** A
+  face exactly as long as its panels leaves the walk's own "does the next one still fit" test on a
+  float boundary, and it decided against about two slots a map. But slack the run reads as bare
+  ground is slack the closing pass fills, and it fills a sliver with a whole panel: at a millimetre
+  it laid a second panel a millimetre along the first on all four faces of both rings. Half of
+  `WallRun.EndTolerance` is under what the closing pass will touch and twenty times over the
+  cursor's own arithmetic. `EndTolerance` is public now because a caller sizing a run to its own art
+  has to know it.
+
+- **An edge snap levels the two undersides, not the two pivots.** `EdgeSnap.TryFlush` reports which
+  neighbour it took its edge from, and `ArenaEditCapture` reads that neighbour's
+  `CatalogEntry.BaseOffset` to put the dropped object's underside at the same height. A pivot is not
+  the bottom of anything — the offset is zero for art modelled on its base and half its height for
+  art modelled around its centre — so two pieces flush on the ground plane and a step apart in
+  elevation were the ordinary result on a catalog of somebody else's art.
+
+  It extends the rule the horizontal snap already follows rather than adding one beside it: an edge
+  in reach decides the height too, and the ground under the object is what a drop with nothing near
+  it falls back on.
+
+- **`Tools/ArenaForge/Import Art…`.** `ArenaAssetImport` was reachable only from a script call,
+  which made the one part of the pipeline aimed squarely at somebody else's art pack the one part
+  nobody could reach. The window is the three things the call cannot guess — folder, module,
+  tolerance — over the Project window's own selection, and it reports what it corrected against what
+  it declined. The folder field starts at the workspace's prop root rather than at a folder under it,
+  because which one is the whole question: a folder below `Props` says where the generator may put
+  the art, and only the person importing knows that.
+
+- **`CatalogSync` counts a prefab root's own scale, and the realiser stops discarding it.** The row
+  said one size and the art was another, on any prefab whose root was not at unit scale.
+
+  **The note this replaces had the reason backwards, and that changed the fix.** It recorded that the
+  measurement ignored the root scale "while `WorldRealizer` instantiates that prefab and the root
+  scale plainly does apply to what stands in the map". It did not: the realiser assigned
+  `localScale` outright, so the prefab's own root scale was thrown away at realisation. The row and
+  the map therefore agreed with each other and both disagreed with the authored art — and counting
+  the scale in the measurement alone would have broken the one agreement there was. So `Extent`
+  applies the root scale when it closes the box, and the realiser multiplies by the scale the prefab
+  already carries instead of replacing it. `TheMeasurementIgnoresTheRootsOwnScale` becomes
+  `TheMeasurementCountsTheRootsOwnScale`, and a second test asserts a realised instance stands at the
+  size its row was measured at, so the two halves cannot drift apart with only one of them failing.
+
+  **A measurement in the standing space is the wrong space for a local position.**
+  `DoorwaySetup.Start` writes a `localPosition` under the very root whose scale the measurement now
+  includes, and on a house scaled three times up the undivided figure put the marker a metre under
+  its own floor. It divides the scale back out; the marker's own box needs no dividing, being in the
+  same local units already. `TryMeasure` now says which space it answers in, so the next caller does
+  not have to find out from a failing test.
+
+  **Nothing recorded moved.** Every prefab the suites build stands at unit scale, so both halves are
+  arithmetic on one, and the editor run is 698 of 698 with no digest re-recorded.
+
 - **A road is drawn once: the merge trims instead of dropping.** `RoadNetwork.Merge` cut a segment
   only when it rode inside *one* other road end to end, which on a hilly map is none of them — 0.0%
   of the network, against 79.7% riding inside the union of several in turn. So the same ground was

@@ -46,7 +46,30 @@ namespace ArenaForge.Core
         /// <param name="offset">The translation to apply. Zero when this returns false.</param>
         /// <exception cref="ArgumentNullException"><paramref name="neighbours"/> is null.</exception>
         public static bool TryFlush(
-            Rect2 moving, IReadOnlyList<Rect2> neighbours, float reach, out Vec2 offset)
+            Rect2 moving, IReadOnlyList<Rect2> neighbours, float reach, out Vec2 offset) =>
+            TryFlush(moving, neighbours, reach, out offset, out _);
+
+        /// <summary>
+        /// The same, and which neighbour the edge was taken from.
+        /// </summary>
+        /// <remarks>
+        /// A caller that only wants the translation uses the overload above; this one exists for
+        /// the caller that has to ask the neighbour something else afterwards. Lining two footprints
+        /// up on the ground plane says nothing about how high they stand, and a wall flush with the
+        /// wall beside it but a step above it is not flush with anything — so
+        /// <c>ArenaEditCapture</c> reads this one's base offset and levels the two undersides.
+        /// </remarks>
+        /// <param name="neighbour">
+        /// Index into <paramref name="neighbours"/> of the footprint whose edge was taken, or -1
+        /// when nothing was in reach. Where the two axes came from different neighbours it is the
+        /// one behind the nearer of the two pulls, which is the edge that was plainly aimed at.
+        /// </param>
+        public static bool TryFlush(
+            Rect2 moving,
+            IReadOnlyList<Rect2> neighbours,
+            float reach,
+            out Vec2 offset,
+            out int neighbour)
         {
             if (neighbours == null)
             {
@@ -54,6 +77,7 @@ namespace ArenaForge.Core
             }
 
             offset = Vec2.Zero;
+            neighbour = -1;
 
             if (!(reach > 0f))
             {
@@ -64,6 +88,8 @@ namespace ArenaForge.Core
             float bestZ = 0f;
             float nearestX = reach;
             float nearestZ = reach;
+            int atX = -1;
+            int atZ = -1;
 
             for (int i = 0; i < neighbours.Count; i++)
             {
@@ -83,35 +109,45 @@ namespace ArenaForge.Core
                 // one and line their edges up on the other — see the remarks on the type.
                 if (overlapX <= overlapZ)
                 {
-                    Consider(other.MinX - moving.MaxX, ref nearestX, ref bestX);
-                    Consider(other.MaxX - moving.MinX, ref nearestX, ref bestX);
-                    Consider(other.MinZ - moving.MinZ, ref nearestZ, ref bestZ);
-                    Consider(other.MaxZ - moving.MaxZ, ref nearestZ, ref bestZ);
+                    Consider(other.MinX - moving.MaxX, i, ref nearestX, ref bestX, ref atX);
+                    Consider(other.MaxX - moving.MinX, i, ref nearestX, ref bestX, ref atX);
+                    Consider(other.MinZ - moving.MinZ, i, ref nearestZ, ref bestZ, ref atZ);
+                    Consider(other.MaxZ - moving.MaxZ, i, ref nearestZ, ref bestZ, ref atZ);
                 }
                 else
                 {
-                    Consider(other.MinZ - moving.MaxZ, ref nearestZ, ref bestZ);
-                    Consider(other.MaxZ - moving.MinZ, ref nearestZ, ref bestZ);
-                    Consider(other.MinX - moving.MinX, ref nearestX, ref bestX);
-                    Consider(other.MaxX - moving.MaxX, ref nearestX, ref bestX);
+                    Consider(other.MinZ - moving.MaxZ, i, ref nearestZ, ref bestZ, ref atZ);
+                    Consider(other.MaxZ - moving.MinZ, i, ref nearestZ, ref bestZ, ref atZ);
+                    Consider(other.MinX - moving.MinX, i, ref nearestX, ref bestX, ref atX);
+                    Consider(other.MaxX - moving.MaxX, i, ref nearestX, ref bestX, ref atX);
                 }
             }
 
             offset = new Vec2(bestX, bestZ);
-            return bestX != 0f || bestZ != 0f;
+
+            // Only an axis that actually moved names a neighbour. An edge already exactly in line
+            // registers as the nearest thing seen and pulls by nothing, and the object it belongs
+            // to is not the one this drop was aimed at.
+            neighbour = bestX != 0f && (bestZ == 0f || nearestX <= nearestZ) ? atX
+                : bestZ != 0f ? atZ
+                : -1;
+
+            return neighbour >= 0;
         }
 
         /// <summary>
         /// Keeps the nearest candidate seen so far. Strictly nearer, so a tie is broken by the
         /// neighbour that came first in the list rather than by the last one to be looked at.
         /// </summary>
-        static void Consider(float candidate, ref float nearest, ref float best)
+        static void Consider(
+            float candidate, int index, ref float nearest, ref float best, ref int at)
         {
             float distance = MathF.Abs(candidate);
             if (distance < nearest)
             {
                 nearest = distance;
                 best = candidate;
+                at = index;
             }
         }
 

@@ -67,10 +67,11 @@ namespace ArenaForge.Editor
     /// only near a piece's own length by coincidence.
     /// </para>
     /// <para>
-    /// <strong>The correction goes on the prefab's children.</strong> A scale on the root cancels
-    /// out of the measurement <c>CatalogSync</c> takes and does not cancel out of what a realised
-    /// instance stands at, so putting it there would make the catalog disagree with the map. Art
-    /// modelled straight onto its root has nowhere to carry a correction and is reported unchanged.
+    /// <strong>The correction goes on the prefab's children.</strong> Art modelled straight onto
+    /// its root has nowhere to carry one and is reported unchanged. The root itself could carry it
+    /// now that <c>CatalogSync</c> counts a root's own scale and <c>WorldRealizer</c> composes it,
+    /// which it did not when this was written; putting it there is a change to make on purpose
+    /// rather than a line to quietly delete, and it is in <c>FUTURE.md</c>.
     /// </para>
     /// <para>
     /// <strong>The tolerance is small by default and the user's to raise.</strong> Nothing in the
@@ -196,12 +197,13 @@ namespace ArenaForge.Editor
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <strong>On the children, never on the root.</strong> <c>CatalogSync</c> measures a prefab
-        /// in its own root space, so a scale on the root itself cancels out of the measurement — see
-        /// <c>ArenaAssetImportTests.TheMeasurementIgnoresTheRootsOwnScale</c> — while a realised
-        /// instance plainly carries it. Correcting the root would leave the row saying one size and
-        /// the map standing at another, which is the one kind of wrong this whole pipeline exists to
-        /// prevent.
+        /// <strong>On the children, never on the root.</strong> The reason it was written that way
+        /// has since gone: a scale on the root cancelled out of the measurement <c>CatalogSync</c>
+        /// took, so a correction put there would have left the row saying one size and the map
+        /// standing at another. The measurement counts it now, and <c>WorldRealizer</c> composes it
+        /// rather than overwriting it — see
+        /// <c>ArenaAssetImportTests.TheMeasurementCountsTheRootsOwnScale</c>. What keeps the
+        /// correction on the children today is only that nothing has moved it.
         /// </para>
         /// <para>
         /// Positions as well as scales, because a uniform scale about the root's origin moves what is
@@ -210,9 +212,8 @@ namespace ArenaForge.Editor
         /// </para>
         /// <para>
         /// <strong>Art modelled straight onto the root is refused.</strong> There is no child to
-        /// carry the correction and the root cannot, so the size is reported as it was measured and
-        /// left alone. Saying so is the point: the alternative is a silent disagreement between the
-        /// catalog and the scene.
+        /// carry the correction, so the size is reported as it was measured and left alone. Saying
+        /// so is the point: a size silently declined is worse than one visibly declined.
         /// </para>
         /// </remarks>
         static bool TryRescale(Transform root, float scale)
@@ -296,6 +297,189 @@ namespace ArenaForge.Editor
 
                 path = next;
             }
+        }
+    }
+
+    /// <summary>
+    /// The window behind <c>Tools/ArenaForge/Import Art…</c>: turns the prefabs selected in the
+    /// Project window into fitted, size-corrected variants.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="ArenaAssetImport"/> had no way in but a script call, which meant the one piece of
+    /// the pipeline aimed squarely at somebody else's art pack was the one piece nobody could reach.
+    /// The window adds nothing to what it does; it is the folder, the module and the tolerance,
+    /// which are the three things <see cref="ArenaAssetImport.Import"/> cannot guess.
+    /// </para>
+    /// <para>
+    /// <strong>The selection is the input, as it is for Merge to Prefab and Wrap Object.</strong>
+    /// Importing art begins with picking art out of the Project window, so the window reads what is
+    /// selected rather than keeping a list of its own for somebody to fill in twice.
+    /// </para>
+    /// </remarks>
+    sealed class ArenaAssetImportWindow : EditorWindow
+    {
+        /// <summary>Where the folder field starts, which is not where art should end up.</summary>
+        /// <remarks>
+        /// The workspace's prop root, so the browser opens where the answer is — and not one of the
+        /// folders under it, because which one is the whole question. A folder below <c>Props</c>
+        /// does not say what a piece of art is, it says where the generator may put it, and only
+        /// the person importing knows that. Written straight into <c>Props</c> the art syncs into
+        /// no tag the placement stages query, which is why the field is a starting point rather
+        /// than a default worth accepting.
+        /// </remarks>
+        static readonly string DefaultFolder = $"{ArenaWorkspace.DefaultRoot}/Props";
+
+        string _folder = DefaultFolder;
+        float _module = ArenaAssetImport.DefaultModule;
+        float _tolerance = ArenaAssetImport.DefaultTolerance;
+        string _result;
+
+        /// <summary>Opens the window, or brings the open one to the front.</summary>
+        [MenuItem("Tools/ArenaForge/Import Art…")]
+        public static void Open()
+        {
+            var window = GetWindow<ArenaAssetImportWindow>(true, "Import Art", true);
+            window.minSize = new Vector2(420f, 210f);
+            window.Show();
+        }
+
+        void OnSelectionChange() => Repaint();
+
+        void OnGUI()
+        {
+            List<GameObject> sources = Sources();
+
+            EditorGUILayout.HelpBox(
+                sources.Count == 0
+                    ? "Select the prefabs to import in the Project window."
+                    : $"{sources.Count} prefab(s) will be imported as variants, fitted with a " +
+                      "collider and corrected to size.",
+                sources.Count == 0 ? MessageType.Info : MessageType.None);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                _folder = EditorGUILayout.TextField("Folder", _folder);
+
+                if (GUILayout.Button("Browse…", GUILayout.Width(70f)))
+                {
+                    Browse();
+                }
+            }
+
+            _module = EditorGUILayout.FloatField("Module", _module);
+            _tolerance = EditorGUILayout.FloatField("Tolerance", _tolerance);
+
+            EditorGUILayout.HelpBox(
+                $"A piece whose longest horizontal axis is within {_tolerance:0.###} m of a " +
+                $"multiple of {_module:0.###} m is scaled onto it. Zero tolerance corrects nothing." +
+                "  The folder decides where the generator may place this art, so pick the " +
+                "prop folder that says so rather than the root.",
+                MessageType.None);
+
+            using (new EditorGUI.DisabledScope(
+                       sources.Count == 0 || string.IsNullOrEmpty(_folder)))
+            {
+                if (GUILayout.Button("Import"))
+                {
+                    Run(sources);
+                }
+            }
+
+            if (!string.IsNullOrEmpty(_result))
+            {
+                EditorGUILayout.HelpBox(_result, MessageType.Info);
+            }
+        }
+
+        /// <summary>The prefab assets among the selection, in selection order.</summary>
+        static List<GameObject> Sources()
+        {
+            Object[] chosen = Selection.GetFiltered(typeof(GameObject), SelectionMode.Assets);
+            var sources = new List<GameObject>(chosen.Length);
+
+            for (int i = 0; i < chosen.Length; i++)
+            {
+                if (chosen[i] is GameObject asset && PrefabUtility.IsPartOfPrefabAsset(asset))
+                {
+                    sources.Add(asset);
+                }
+            }
+
+            return sources;
+        }
+
+        void Run(List<GameObject> sources)
+        {
+            List<ImportedAsset> imported =
+                ArenaAssetImport.Import(sources, _folder, _module, _tolerance);
+
+            var corrected = 0;
+            var collidered = 0;
+
+            for (int i = 0; i < imported.Count; i++)
+            {
+                if (imported[i].Rescaled)
+                {
+                    corrected++;
+                }
+
+                if (imported[i].ColliderAdded)
+                {
+                    collidered++;
+                }
+            }
+
+            // What was declined is as much of the answer as what was done: a piece too far off a
+            // module to correct is a piece somebody chose that size, and the report is where that
+            // shows.
+            _result = imported.Count == 0
+                ? $"Nothing was imported into {_folder}."
+                : $"{imported.Count} of {sources.Count} imported into {_folder}. " +
+                  $"{corrected} corrected to size, {imported.Count - corrected} left as measured, " +
+                  $"{collidered} given a collider.";
+
+            if (imported.Count > 0)
+            {
+                Selection.objects = Variants(imported);
+            }
+        }
+
+        static Object[] Variants(List<ImportedAsset> imported)
+        {
+            var objects = new Object[imported.Count];
+            for (int i = 0; i < imported.Count; i++)
+            {
+                objects[i] = imported[i].Variant;
+            }
+
+            return objects;
+        }
+
+        void Browse()
+        {
+            string start = AssetDatabase.IsValidFolder(_folder) ? _folder : "Assets";
+            string chosen = EditorUtility.OpenFolderPanel("Folder for the imported art", start, string.Empty);
+
+            if (string.IsNullOrEmpty(chosen))
+            {
+                return;
+            }
+
+            string folder = ArenaWorkspace.ProjectFolder(chosen);
+            if (folder == null)
+            {
+                EditorUtility.DisplayDialog(
+                    "Import Art",
+                    $"'{chosen}' is outside this project, so art cannot be written there. " +
+                    "Choose a folder under Assets.",
+                    "OK");
+
+                return;
+            }
+
+            _folder = folder;
+            GUI.FocusControl(null);
         }
     }
 }

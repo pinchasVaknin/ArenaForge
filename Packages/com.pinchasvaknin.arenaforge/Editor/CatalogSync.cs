@@ -621,6 +621,13 @@ namespace ArenaForge.Editor
         /// still art the piece is made of, and a size that changed with what happened to be enabled
         /// would not be a measurement.
         /// </para>
+        /// <para>
+        /// <strong>The answer is in the space the art stands in, not in the root's own.</strong> A
+        /// scale on the prefab's root counts, because <c>WorldRealizer</c> composes it rather than
+        /// replacing it and the map stands the art at that size. A caller writing something back
+        /// <em>under</em> that root — a <c>localPosition</c>, say — is in the other space and has to
+        /// divide it out; <c>DoorwaySetup.Start</c> is the one that does.
+        /// </para>
         /// </remarks>
         public static bool TryMeasure(GameObject prefab, out Bounds bounds)
         {
@@ -857,6 +864,7 @@ namespace ArenaForge.Editor
         struct Extent
         {
             readonly Matrix4x4 _toRoot;
+            readonly Vector3 _rootScale;
             Vector3 _min;
             Vector3 _max;
             bool _any;
@@ -864,6 +872,7 @@ namespace ArenaForge.Editor
             public Extent(Transform root)
             {
                 _toRoot = root.worldToLocalMatrix;
+                _rootScale = root.localScale;
                 _min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue);
                 _max = new Vector3(float.MinValue, float.MinValue, float.MinValue);
                 _any = false;
@@ -895,8 +904,16 @@ namespace ArenaForge.Editor
                     return false;
                 }
 
+                // Everything above was gathered in the root's own space, which is the one space the
+                // root's scale is invisible in — worldToLocalMatrix carries its inverse and every
+                // child's localToWorldMatrix carries it, so the two cancel and a prefab scaled to
+                // twice its size measures the same as the prefab it was scaled from. Applying it
+                // here is what makes the row say the size the map will stand the art at. See
+                // WorldRealizer, which composes the same scale rather than overwriting it.
                 var measured = new Bounds();
-                measured.SetMinMax(_min, _max);
+                measured.SetMinMax(
+                    Vector3.Scale(_min, _rootScale), Vector3.Scale(_max, _rootScale));
+
                 bounds = measured;
                 return true;
             }

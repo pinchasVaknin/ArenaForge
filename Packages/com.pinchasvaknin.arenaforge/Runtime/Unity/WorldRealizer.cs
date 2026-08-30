@@ -182,8 +182,20 @@ namespace ArenaForge.Unity
             // The vertical scale multiplies the uniform one rather than replacing it on Y, so a
             // stretched piece that is also scaled comes out scaled and then stretched — which is
             // the order Core composes them in. It is one for everything but a wall run.
+            //
+            // And both multiply the scale the prefab already carries on its own root rather than
+            // replacing it. Overwriting it silently unscaled every prefab whose root was not at
+            // one: the art stood at a different size in the map than it did in its own prefab
+            // view, and the catalog — which measured in root space and so could not see the root's
+            // scale either — agreed with the map and not with the art. Composing here and counting
+            // it in CatalogSync.Extent are the two halves of one fix; either alone puts the row and
+            // the map back out of step.
+            Vector3 own = t.localScale;
+
             t.localScale = new Vector3(
-                pose.Scale, pose.Scale * pose.VerticalScale, pose.Scale);
+                own.x * pose.Scale,
+                own.y * pose.Scale * pose.VerticalScale,
+                own.z * pose.Scale);
 
             instance.AddComponent<ArenaObjectRef>().Bind(placed.StableId);
 

@@ -638,6 +638,7 @@ namespace ArenaForge.Editor
             Catalog catalog = asset.ToCatalog();
 
             var neighbours = new List<Rect2>();
+            var undersides = new List<float>();
             ResolvedWorld resolved = doc.Resolve();
 
             for (int i = 0; i < resolved.Objects.Count; i++)
@@ -652,6 +653,7 @@ namespace ArenaForge.Editor
                 if (row != null)
                 {
                     neighbours.Add(other.Pose.Bounds(row.Footprint));
+                    undersides.Add(Underside(row, other.Pose));
                 }
             }
 
@@ -661,7 +663,8 @@ namespace ArenaForge.Editor
             // of how the two snaps are reconciled: lining a wall up with the wall beside it is a
             // thing the user aimed at, and the grid is what they get when they aimed at open floor.
             bool flush = EdgeSnap.TryFlush(
-                current.Bounds(entry.Footprint), neighbours, SnapReach(), out Vec2 offset);
+                current.Bounds(entry.Footprint), neighbours, SnapReach(),
+                out Vec2 offset, out int against);
 
             Vec2 placed = flush
                 ? new Vec2(current.Position.X + offset.X, current.Position.Z + offset.Y)
@@ -670,7 +673,12 @@ namespace ArenaForge.Editor
             // Downwards after sideways, and sampled where the object ends up rather than where the
             // mouse let go: the horizontal snap can carry a piece off the slab it was dropped over,
             // and the height that matters is the height under where it lands.
-            float standing = Standing(asset, entry, instance, placed, current);
+            // Level with what it lined up against, and on the ground when it lined up against
+            // nothing. Two pieces flush on the ground plane and a step apart in height are not
+            // flush with each other — see Underside.
+            float standing = against >= 0
+                ? undersides[against] + entry.BaseOffset * current.Scale * current.VerticalScale
+                : Standing(asset, entry, instance, placed, current);
 
             return new CorePose(
                 new Vec3(placed.X, standing, placed.Y),
@@ -806,6 +814,19 @@ namespace ArenaForge.Editor
 
             return false;
         }
+
+        /// <summary>How high the underside of a piece of art stands, in the document's own space.</summary>
+        /// <remarks>
+        /// The pose holds where the pivot is, and a pivot is not the bottom of anything —
+        /// <see cref="CatalogEntry.BaseOffset"/> is how far the art reaches below it, which is zero
+        /// for art modelled on its base and half its height for art modelled around its centre. Two
+        /// pieces whose pivots are level are only level themselves if they were modelled the same
+        /// way, and a catalog of somebody else's art is not. Scaled by both factors for the reason
+        /// <c>WorldRealizer</c> multiplies them: the realiser writes the uniform scale on every axis
+        /// and the vertical one over it, so the art reaches that far times both below its pivot.
+        /// </remarks>
+        static float Underside(CatalogEntry entry, CorePose pose) =>
+            pose.Position.Y - entry.BaseOffset * pose.Scale * pose.VerticalScale;
 
         /// <summary>Two coordinates the same to within a tenth of a millimetre.</summary>
         /// <remarks>

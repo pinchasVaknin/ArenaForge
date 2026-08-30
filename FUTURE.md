@@ -582,3 +582,11 @@ span a gap comes back to the floor the moment it is nudged. The alternative that
 rejected is snapping only what was already on the ground, which costs the case the feature is for —
 lifting a crate onto a second floor. What would cover both is a way to say *this one is airborne*,
 either a modifier held during the drag or a flag on the override, and neither is there.
+
+**An imported size correction still cannot go on a prefab's root.** `ArenaAssetImport` scales the
+children and refuses art modelled straight onto the root, because a scale on the root used to cancel
+out of the measurement `CatalogSync` took. It does not any more — the measurement counts it and
+`WorldRealizer` composes it rather than overwriting it — so the correction could live on the root
+and root-modelled art could be corrected like anything else. What stops it is that nothing has moved
+it, and moving it changes the size of every piece of art imported that way.
+
