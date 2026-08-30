@@ -51,10 +51,13 @@ namespace ArenaForge.Editor
         }
 
         readonly List<Watched> _watched = new List<Watched>();
+        readonly List<int> _dropped = new List<int>();
         readonly ArenaMap _map;
 
         WorldDoc _builtFrom;
         int _cleanUndoGroup;
+        bool _listening;
+        bool _adopted;
 
         /// <summary>Starts watching a map. Call <see cref="Rebuild"/> once it has been realised.</summary>
         public ArenaEditCapture(ArenaMap map)
@@ -115,6 +118,62 @@ namespace ArenaForge.Editor
         }
 
         /// <summary>
+        /// Starts watching the scene for prefabs dropped into it. Idempotent, and paired with
+        /// <see cref="Release"/>.
+        /// </summary>
+        /// <remarks>
+        /// On the same bargain the class itself is on: capture mutates the user's document, so it
+        /// listens while the tool window is open and not while it is closed.
+        /// </remarks>
+        public void Watch()
+        {
+            if (_listening)
+            {
+                return;
+            }
+
+            _listening = true;
+            ObjectChangeEvents.changesPublished += OnSceneChanged;
+        }
+
+        /// <summary>Stops watching the scene. Idempotent, and safe on one that never started.</summary>
+        public void Release()
+        {
+            if (!_listening)
+            {
+                return;
+            }
+
+            _listening = false;
+            ObjectChangeEvents.changesPublished -= OnSceneChanged;
+        }
+
+        /// <summary>
+        /// Notes objects that have appeared in the scene, to be looked at on the next tick.
+        /// </summary>
+        /// <remarks>
+        /// Noted rather than acted on. Adopting one means destroying it, adding an override and
+        /// realising the document, which is a scene edit — and making a scene edit from inside the
+        /// notification that a scene edit happened is how a plugin ends up re-entering itself. The
+        /// tick is already the place where this class changes things.
+        /// </remarks>
+        void OnSceneChanged(ref ObjectChangeEventStream stream)
+        {
+            for (int i = 0; i < stream.length; i++)
+            {
+                if (stream.GetEventType(i) != ObjectChangeKind.CreateGameObjectHierarchy)
+                {
+                    continue;
+                }
+
+                stream.GetCreateGameObjectHierarchyEvent(
+                    i, out CreateGameObjectHierarchyEventArgs created);
+
+                _dropped.Add(created.instanceId);
+            }
+        }
+
+        /// <summary>
         /// Looks for moved and deleted instances and records them. Returns true if the document
         /// changed.
         /// </summary>
@@ -122,8 +181,24 @@ namespace ArenaForge.Editor
         {
             if (_map == null || !_map.HasDocument)
             {
+                _dropped.Clear();
                 return false;
             }
+
+            for (int i = 0; i < _dropped.Count; i++)
+            {
+                // InstanceIDToObject over EntityIdToObject, which replaces it: the replacement
+                // arrived in 6000.3 and this package says it runs on 6000.0. The old call still
+                // works on both.
+#pragma warning disable 618
+                Adopt(EditorUtility.InstanceIDToObject(_dropped[i]) as GameObject);
+#pragma warning restore 618
+            }
+
+            _dropped.Clear();
+
+            bool adopted = _adopted;
+            _adopted = false;
 
             WorldDoc doc = _map.Document;
 
@@ -137,7 +212,7 @@ namespace ArenaForge.Editor
                 return true;
             }
 
-            bool registered = false;
+            bool registered = adopted;
             bool settled = true;
 
             for (int i = 0; i < _watched.Count; i++)
@@ -186,6 +261,11 @@ namespace ArenaForge.Editor
                 return true;
             }
 
+            if (adopted)
+            {
+                return true;
+            }
+
             if (settled)
             {
                 // Nothing is pending, so any undo step after this point belongs to the next edit
@@ -195,6 +275,104 @@ namespace ArenaForge.Editor
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// Takes a prefab somebody dropped into the scene into the document as a user object, if the
+        /// catalog knows what it is.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <strong>The catalog is what makes it adoptable.</strong> A document names art by logical
+        /// id, so a prefab with no row has nothing the document could say about it and is left in
+        /// the scene as the ordinary GameObject the user dropped. That is the honest outcome rather
+        /// than a silent refusal: what is missing is a catalog row, and Sync from Folders is how one
+        /// is made.
+        /// </para>
+        /// <para>
+        /// <strong>Only a drop into the scene itself.</strong> An object parented to something is a
+        /// deliberate piece of hierarchy somebody built, and one already under the realisation root
+        /// is this class's own realise coming back round as a notification.
+        /// </para>
+        /// <para>
+        /// <strong>The dropped instance is destroyed and the document makes its own.</strong> The
+        /// document is authoritative and the scene derived, so an adopted object has to be the
+        /// realiser's instance and not the one the drag left behind — otherwise the next realise
+        /// would delete it and put an identical one in its place, which is the same thing happening
+        /// later and less predictably. Both halves go into one undo group, so one Ctrl+Z puts the
+        /// drop back the way the user made it.
+        /// </para>
+        /// <para>
+        /// It is snapped on the way in, by the same rules a drag is: flush with what it landed
+        /// beside, on the grid otherwise, standing on whatever is under it.
+        /// </para>
+        /// </remarks>
+        void Adopt(GameObject dropped)
+        {
+            if (dropped == null || dropped.transform.parent != null ||
+                dropped.GetComponent<ArenaObjectRef>() != null)
+            {
+                return;
+            }
+
+            CatalogAsset asset = _map.Realizer != null ? _map.Realizer.Catalog : null;
+            if (asset == null || PrefabUtility.GetNearestPrefabInstanceRoot(dropped) != dropped)
+            {
+                return;
+            }
+
+            GameObject prefab = PrefabUtility.GetCorrespondingObjectFromSource<GameObject>(dropped);
+            if (prefab == null)
+            {
+                return;
+            }
+
+            string logicalId = null;
+            string[] tags = null;
+            IReadOnlyList<CatalogAsset.Row> rows = asset.Rows;
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].Prefab == prefab)
+                {
+                    logicalId = rows[i].LogicalId;
+                    tags = rows[i].Tags;
+                    break;
+                }
+            }
+
+            if (logicalId == null)
+            {
+                return;
+            }
+
+            WorldDoc doc = _map.Document;
+            Transform space = _map.Realizer.Root;
+            Transform t = dropped.transform;
+
+            Vector3 position = space.InverseTransformPoint(t.position);
+            Quaternion rotation = Quaternion.Inverse(space.rotation) * t.rotation;
+            Vector3 scale = t.lossyScale;
+            float uniform = scale.x != 0f ? scale.x : 1f;
+
+            var pose = new CorePose(
+                CoreConvert.ToCore(position),
+                CoreConvert.ToCore(rotation),
+                uniform,
+                scale.y / uniform);
+
+            CatalogEntry entry = asset.ToCatalog().Find(logicalId);
+            if (entry != null)
+            {
+                pose = Snapped(doc, entry, null, t, pose);
+            }
+
+            int group = Undo.GetCurrentGroup();
+            Undo.DestroyObjectImmediate(dropped);
+            RecordAdd(logicalId, pose, tags);
+            Undo.CollapseUndoOperations(group);
+
+            _adopted = true;
         }
 
         /// <summary>
@@ -418,12 +596,46 @@ namespace ArenaForge.Editor
                 return current;
             }
 
-            Catalog catalog = asset.ToCatalog();
-            CatalogEntry entry = EntryOf(catalog, doc, watched.StableId);
+            CatalogEntry entry = EntryOf(asset.ToCatalog(), doc, watched.StableId);
             if (entry == null)
             {
                 return current;
             }
+
+            CorePose snapped = Snapped(doc, entry, watched.StableId, watched.Instance, current);
+
+            if (Near(snapped.Position.X, current.Position.X) &&
+                Near(snapped.Position.Z, current.Position.Z) &&
+                Near(snapped.Position.Y, current.Position.Y))
+            {
+                return current;
+            }
+
+            Undo.RecordObject(watched.Instance, "ArenaForge: snap");
+            watched.Instance.localPosition = CoreConvert.ToUnity(snapped.Position);
+
+            return snapped;
+        }
+
+        /// <summary>
+        /// Where a piece of art ends up if it is let go at a pose: flush with what it landed beside,
+        /// on the grid otherwise, and standing on whatever is under it.
+        /// </summary>
+        /// <remarks>
+        /// Split out from the pose the caller writes because a prefab dropped in from the Project
+        /// window has to ask the same question before it is in the document at all — see
+        /// <see cref="Adopt"/>. Nothing here writes anything: it answers, and the caller decides
+        /// what to do with the answer.
+        /// </remarks>
+        /// <param name="moving">
+        /// The object being placed, left out of its own neighbour list. Null for one that is not in
+        /// the document yet, which has nothing of its own to leave out.
+        /// </param>
+        CorePose Snapped(
+            WorldDoc doc, CatalogEntry entry, string moving, Transform instance, CorePose current)
+        {
+            CatalogAsset asset = _map.Realizer.Catalog;
+            Catalog catalog = asset.ToCatalog();
 
             var neighbours = new List<Rect2>();
             ResolvedWorld resolved = doc.Resolve();
@@ -431,7 +643,7 @@ namespace ArenaForge.Editor
             for (int i = 0; i < resolved.Objects.Count; i++)
             {
                 PlacedObject other = resolved.Objects[i];
-                if (other.StableId == watched.StableId || CoverPlacer.IsSocketProp(other.StableId))
+                if (other.StableId == moving || CoverPlacer.IsSocketProp(other.StableId))
                 {
                     continue;
                 }
@@ -458,25 +670,13 @@ namespace ArenaForge.Editor
             // Downwards after sideways, and sampled where the object ends up rather than where the
             // mouse let go: the horizontal snap can carry a piece off the slab it was dropped over,
             // and the height that matters is the height under where it lands.
-            float standing = Standing(asset, entry, watched, placed, current);
+            float standing = Standing(asset, entry, instance, placed, current);
 
-            if (Near(placed.X, current.Position.X) &&
-                Near(placed.Y, current.Position.Z) &&
-                Near(standing, current.Position.Y))
-            {
-                return current;
-            }
-
-            var snapped = new CorePose(
+            return new CorePose(
                 new Vec3(placed.X, standing, placed.Y),
                 current.Rotation,
                 current.Scale,
                 current.VerticalScale);
-
-            Undo.RecordObject(watched.Instance, "ArenaForge: snap");
-            watched.Instance.localPosition = CoreConvert.ToUnity(snapped.Position);
-
-            return snapped;
         }
 
         /// <summary>
@@ -510,7 +710,7 @@ namespace ArenaForge.Editor
         /// </para>
         /// </remarks>
         float Standing(
-            CatalogAsset asset, CatalogEntry entry, Watched watched, Vec2 at, CorePose current)
+            CatalogAsset asset, CatalogEntry entry, Transform instance, Vec2 at, CorePose current)
         {
             Transform space = _map.Realizer.Root;
 
@@ -540,7 +740,7 @@ namespace ArenaForge.Editor
             {
                 RaycastHit hit = hits[i];
 
-                if (hit.transform.IsChildOf(watched.Instance) ||
+                if (hit.transform.IsChildOf(instance) ||
                     !IsStandingSurface(asset, hit.collider))
                 {
                     continue;

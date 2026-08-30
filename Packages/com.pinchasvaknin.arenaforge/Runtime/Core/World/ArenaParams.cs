@@ -156,8 +156,8 @@ namespace ArenaForge.Core
         /// </para>
         /// <para>
         /// <strong>What the climb costs is earthworks.</strong> Over seeds 1..1000 on the validation
-        /// sweep's own ground, 0.109% of the road laid crosses ground steeper than the limit — 318 m
-        /// of 290,421 — always one cell at a time, because the smoothing still refuses to straighten
+        /// sweep's own ground, 0.137% of the road laid crosses ground steeper than the limit — 396 m
+        /// of 289,798 — always one cell at a time, because the smoothing still refuses to straighten
         /// a line along a bank. The grading cuts up to 2.76 m to carry it there.
         /// </para>
         /// <para>

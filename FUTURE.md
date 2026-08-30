@@ -582,3 +582,27 @@ span a gap comes back to the floor the moment it is nudged. The alternative that
 rejected is snapping only what was already on the ground, which costs the case the feature is for —
 lifting a crate onto a second floor. What would cover both is a way to say *this one is airborne*,
 either a modifier held during the drag or a flag on the override, and neither is there.
+
+**The same ground is drawn as several road segments.** The routes merge — on a hundred-metre map at
+twenty metres of relief, 64.1% of the network's polyline sits within a quarter of a metre of another
+centreline, and the corridor total counts that ground once. What does not merge is the *drawing*:
+958 m of polyline over 359 m of ground, each route still a full-length segment of its own. `RoadKerbs`
+and `RoadFurniture` walk `Segments`, so a shared strip gets two runs of kerbing and two sets of
+street furniture, and the scene-view guides draw it twice.
+
+`RoadNetwork.Merge` cannot see it. It asks whether a segment rides inside *one* other road, which is
+0.0% of the length here, because these ride on a chain of three or four in turn. Asking against the
+union instead was tried in an earlier pass and reverted: a segment covered by two roads can be the
+join between them, and dropping it split the network on 21 seeds in a thousand.
+
+The fix is to trim rather than drop — cut each segment down to the runs that are not already road,
+which cannot disconnect anything because the kept piece still touches whatever covered it. What
+makes it a piece of work rather than a patch: profiles are computed by `Sweep` before the merge and
+would have to be sliced with the polyline, ids gain a level (`road/path_07/part_00`), `Sweep`'s
+artery-and-branch index ranges move, and four validation properties are stated in terms of whole
+segments — including the one that holds a portal's profile end level with its door sill. Every
+recorded digest moves with it.
+
+The property that would have caught this and does not exist: **the polylines cover each piece of
+ground about once.** Polyline over corridor is 1.35 on flat ground and 2.67 on the map that prompted
+this.

@@ -71,7 +71,60 @@ All notable changes to this package are documented here. The format follows
   the fixed measurement convention below; a correction on the root would be invisible to the catalog
   and visible in the map.
 
+- **A broken ring of wooden fencing round each spawn.** `SpawnEnclosure`, between the boundary and
+  the exterior dressing, so a spawn reads as a base somebody holds rather than as a patch of ground
+  with a marker on it. Wooden fencing and not the boundary's stone, because the two folders already
+  mean different things: one is the edge of the world and the other is somebody's garden.
+
+  **The ring is a square inside the spawn band, not the band's own outline.** A spawn area runs the
+  full width of the map and reaches the playfield boundary on its outer side, so a ring on the band
+  would put one run exactly where `PerimeterFence` has already tiled the world's edge and every
+  panel of it would be refused. Held two panel thicknesses inside, which took the panels stood per
+  pair of rings from 24 to 31.
+
+  **Broken on purpose, one gate a side**, placed by this stage's own forked stream in the middle
+  three fifths of each face — never in a corner, where it is hard to see and where two runs are
+  already handing panels over. A gate is `PathWidth` across, the narrowest way through the map the
+  generator lays anywhere. Over forty seeds a ring comes out **67.4% panel, 17.2% gate and 15.9%
+  tail and corner handover**: an enclosure with ways out of it rather than a pen or a token.
+
+  **A workspace with no wooden fence art generates the map it always did** — the palette is read
+  before a draw is taken and an empty one returns before the stream is forked, which is why every
+  recorded digest is unmoved.
+
+- **A prefab dropped in from the Project window becomes a `user/` object.** `ArenaEditCapture`
+  listens to `ObjectChangeEvents` while the tool window is open, on the same bargain the rest of the
+  class is on. A drop whose prefab maps to a catalog row is snapped by the same rules a drag is —
+  flush with what it landed beside, on the grid otherwise, standing on whatever is under it — and
+  recorded as an `Add`.
+
+  **Noted on the event and acted on at the next tick.** Adopting means destroying an object, adding
+  an override and realising, which is a scene edit; making one from inside the notification that a
+  scene edit happened is how a plugin re-enters itself. The tick is already where this class changes
+  things.
+
+  **The dropped instance is destroyed and the document makes its own.** The document is
+  authoritative and the scene derived, so an adopted object has to be the realiser's — otherwise the
+  next realise deletes it and puts an identical one in its place, which is the same thing happening
+  later and less predictably. Both halves collapse into one undo step.
+
+  **A prefab with no catalog row is left exactly as Unity dropped it.** A document names art by
+  logical id, so there is nothing it could say about one; what is missing is a row, and Sync from
+  Folders is how one is made.
+
 ### Fixed
+
+- **The layout guides and their labels follow the ground.** `ArenaLayoutGuides` drew the playfield,
+  the lane bands and the spawn areas at three fixed heights a few centimetres over zero, which on a
+  map with relief buries them in a hill at one end and hangs them in the air at the other. They now
+  sample `ArenaMap.Ground` — the *graded* field, roads cut into it — exactly as the placement
+  verdict cells already did.
+
+  **Cut into patches, sized from the terrain's own feature size.** A quarter of one rise or hollow,
+  which is four samples across a bump: enough for a tinted band to read as lying on the ground.
+  Capped at 32 a side so a four-hundred-metre playfield is not several thousand quads per repaint
+  per scene view. **With no relief it is one patch and four corners**, which is pixel for pixel what
+  it drew before.
 
 - **A road drawn twice is drawn once.** `RoadNetwork.Merge` drops a segment that rides inside another
   segment's carriageway, after the routing and before the network is assembled. Over sixty seeds on
@@ -181,7 +234,45 @@ All notable changes to this package are documented here. The format follows
   change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
   than in another number.
 
-- **Six faults an hour in the editor found that the suites did not.** All of them in what the scene
+- **The climb price ran away at a low limit, and the decay charged for the earthworks twice.**
+  Two faults in the entry above, both found by measuring the map that prompted it rather than the
+  sweep. Seed 11162802767278075537 at 100 x 100, amplitude 20, limit 0.25 laid **1013.8 m of
+  polyline over 425 m of ground** — a spider of paths hugging the same gentle contours.
+
+  **`Climb` saturates at twice the limit.** The excess was counted in units of the limit and left
+  unbounded, so the detour a route would make to avoid one cell was however many limits over the
+  limit that cell was: at a quarter over twenty metres of relief, nearly eight, which is a
+  hundred-and-fifty-cell detour to avoid one metre of bank. On a hundred-metre map that reads as
+  "go anywhere rather than cross", and the roads wandered accordingly — one path came out 290 m
+  long. `ClimbDetour` now means the twenty cells its name claims. Ground past twice the limit is
+  too steep to grade and telling one cliff from a worse one buys a longer road, not a better one.
+
+  **And the climb is paid once, by the road that gets built there.** `RoadRouter.Lay` decayed a
+  cell to a quarter of its cost but floored it at a quarter of the *pristine* cost — so a road over
+  a bank, having cost ~2030 to build, still cost ~507 to reuse while fresh gentle ground cost 30.
+  Joining an existing road was **seventeen times dearer than laying a new one beside it**, which
+  defeats braiding exactly where the ground is worst and sends every route round the same way. The
+  climb is the price of *building* over steep ground; once a road is there the next route finds a
+  road, not a hillside, so it comes off the cell for good the first time one is laid across it.
+  Cells within the limit have nothing to pay and are untouched, so a flat map is unmoved cell for
+  cell and every recorded digest held.
+
+  Together: **1013.8 m of polyline over 425 m of ground becomes 958.2 m over 359 m**, and union
+  coverage — how much of the network retraces the rest of it — rises from 75.6% to 79.7%, which is
+  braiding working rather than failing. **64.1% of the polyline now sits within 0.25 m of another
+  centreline**: the routes share the ground. What is left is that each is still *drawn* full length,
+  so kerbs and furniture are laid twice over one strip. `Merge` cannot see it — it asks whether a
+  segment rides inside *one* other road and the answer is 0.0%, because these ride on a chain of
+  several. Trimming each segment to the part that is not already road is the fix and is not done
+  here; it reworks the assembly stage, and is recorded in FUTURE.md.
+
+  **The figures in the entry above are superseded.** Re-measured over seeds 1..1000 of the relief
+  sweep after both changes: road over the limit 0.137% where it was 0.109%, on 210 seeds where it
+  was 156, worst seed 2.08% where it was 1.88%, steepest ground crossed 1.90 where it was 1.44. The
+  road is a little readier to climb, which is the saturation doing its job. Every crossing is still
+  exactly one metre-long step — 396 m over 396 steps — and both thresholds hold with room.
+
+ All of them in what the scene
   view shows or writes, which is the half of the tool no property test looks at.
 
   - **The swap dropdown put itself back before the button could be pressed.** `RefreshSwap` runs on

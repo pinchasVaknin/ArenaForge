@@ -2035,6 +2035,7 @@ namespace ArenaForge.Core
         readonly int[] _seen;
         readonly int[] _closed;
         readonly int[] _decayed;
+        readonly bool[] _paid;
         readonly int[] _region;
         readonly bool[] _covered;
         readonly List<Frontier> _heap;
@@ -2090,6 +2091,7 @@ namespace ArenaForge.Core
             _seen = new int[cells];
             _closed = new int[cells];
             _decayed = new int[cells];
+            _paid = new bool[cells];
             _region = new int[cells];
             _covered = new bool[cells];
             _heap = new List<Frontier>(cells / 8 + 16);
@@ -2427,6 +2429,23 @@ namespace ArenaForge.Core
                         }
 
                         _decayed[near] = _lay;
+
+                        // The climb is what it costs to *build* a road over ground steeper than
+                        // the limit, and this road has just been built. What the next route finds
+                        // here is a road and not a hillside, so the earthworks come off the cell
+                        // for good the first time one is laid across it. Left on, a quarter of a
+                        // large number is still a large number: an existing road over a bank cost
+                        // seventeen times what fresh gentle ground did, so the next route went
+                        // round rather than joining — and every route went round the same way,
+                        // which is a spider of parallel paths and the opposite of what the decay
+                        // is for. Cells within the limit have nothing to pay and are untouched.
+                        int climb = ClimbAt(near);
+                        if (climb > 0 && !_paid[near])
+                        {
+                            _paid[near] = true;
+                            _cost[near] -= climb;
+                        }
+
                         int divisor = near == cell ? DecayDivisor : VergeDivisor;
                         int decayed = _cost[near] / divisor;
 
@@ -2437,7 +2456,7 @@ namespace ArenaForge.Core
                         // rather than cross one metre of grass, because the grass costs more than
                         // the whole detour. A road is a quarter the cost of the ground it is on; a
                         // road several roads use is not free.
-                        int floor = _pristine[near] / divisor;
+                        int floor = (_paid[near] ? _pristine[near] - climb : _pristine[near]) / divisor;
                         if (decayed < floor)
                         {
                             decayed = floor;
@@ -2842,11 +2861,15 @@ namespace ArenaForge.Core
         /// the limit the ground is rather than jumping to one flat surcharge.
         /// </para>
         /// <para>
-        /// <strong>Capped at what going round everything costs.</strong> No detour on this grid is
-        /// longer than crossing it and coming back, so past that price a steeper cell cannot change
-        /// which way a route goes and charging more only makes the numbers bigger. It matters at the
-        /// bottom of <see cref="ArenaParams.MaxRoadGradient"/>'s range, where the excess is measured
-        /// in hundreds of limits and an uncapped price would run a long route's total out of an int.
+        /// <strong>It saturates at twice the limit, and that is the whole of the rule.</strong> The
+        /// excess is counted in units of the limit, so left unbounded the detour a route will make
+        /// to avoid one cell is however many limits over the limit that cell happens to be — at a
+        /// limit of a quarter over twenty metres of relief that is nearly eight, and one cell was
+        /// worth going a hundred and fifty round. On a hundred-metre map that means going anywhere
+        /// at all rather than crossing, and the roads it produced wandered the map hugging whatever
+        /// contour was gentle, several of them hugging the same one. Ground past twice the limit is
+        /// simply too steep to grade, and telling one cliff from a worse one buys a longer road
+        /// rather than a better one.
         /// </para>
         /// </remarks>
         int Climb(float excess)
@@ -2856,10 +2879,21 @@ namespace ArenaForge.Core
                 return 0;
             }
 
-            int ceiling = (_countX + _countZ) * BaseCellCost * OrthogonalStep;
-            float price = ClimbPenalty * (excess / _maxGradient);
+            float over = excess / _maxGradient;
 
-            return price >= ceiling ? ceiling : (int)price;
+            return (int)(ClimbPenalty * (over < 1f ? over : 1f));
+        }
+
+        /// <summary>What <see cref="NaturalCost"/> charged this cell for being over the limit.</summary>
+        /// <remarks>
+        /// Recomputed rather than kept, because <see cref="Gradient"/> is four lookups in an array
+        /// that is already built and a second array would be one more thing that can go stale.
+        /// </remarks>
+        int ClimbAt(int cell)
+        {
+            float gradient = Gradient(cell);
+
+            return Climb(gradient - MathF.Min(gradient, _maxGradient));
         }
 
         /// <summary>Steepest slope of the ground at a point, as rise over run.</summary>
@@ -3060,8 +3094,9 @@ namespace ArenaForge.Core
         /// <remarks>
         /// This is what lets a doorway's approach through the clearance ring round its own building
         /// and through anything else's, while never opening the ground a building stands on. Ground
-        /// too steep to grade and ground inside the playfield margin stay shut, because
-        /// <see cref="NaturalCost"/> is what is recomputed and those are its own answers.
+        /// outside the playfield margin stays shut, and ground too steep to grade comes back at what
+        /// the climb makes it cost, because <see cref="NaturalCost"/> is what is recomputed and
+        /// those are its own answers.
         /// </remarks>
         void Open(Rect2 area)
         {

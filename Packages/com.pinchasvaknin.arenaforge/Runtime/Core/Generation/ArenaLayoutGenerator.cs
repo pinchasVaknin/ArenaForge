@@ -224,9 +224,21 @@ namespace ArenaForge.Core
             // and the lamp post had got there first only because the dressing ran first. The edge
             // of the world outranks a hedge, and putting it down first is how that is said.
             List<Placement> boundary = PerimeterFence.Place(doc, layout, terrain, catalog, structures);
-            List<Placement> anchored = ExteriorPlacer.Place(
+
+            // Then the rings round the spawns, before the dressing rather than after it for the
+            // same reason the boundary goes before both: a spawn's fence is a fact about the map
+            // that a hedge may not take the ground out from under. It is much less art than the
+            // boundary — two squares of a dozen metres — so it costs the dressing almost nothing.
+            List<Placement> spawns = SpawnEnclosure.Place(
                 doc, layout, terrain, catalog, structures, boundary);
-            anchored.AddRange(boundary);
+
+            var up = new List<Placement>(boundary.Count + spawns.Count);
+            up.AddRange(boundary);
+            up.AddRange(spawns);
+
+            List<Placement> anchored = ExteriorPlacer.Place(
+                doc, layout, terrain, catalog, structures, up);
+            anchored.AddRange(up);
 
             // The roads go down between the two, and the order is the whole of what makes them
             // roads. A network is laid to reach the doorways the structures declared, so it cannot

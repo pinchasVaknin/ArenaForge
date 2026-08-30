@@ -149,8 +149,8 @@ namespace ArenaForge.Tests
         /// Most of the road laid over the whole sweep that may cross ground steeper than the limit.
         /// </summary>
         /// <remarks>
-        /// Half of one per cent, against 0.109% measured over seeds 1..1000 — 318 m of 290,421.
-        /// The headroom is nearly five times because what this guards against is not a drift in the
+        /// Half of one per cent, against 0.137% measured over seeds 1..1000 — 396 m of 289,798.
+        /// The headroom is three and a half times because what this guards against is not a drift in the
         /// figure but a change of kind: a router that started running <em>along</em> a hillside
         /// rather than stepping over one moves this by an order of magnitude, and a router that
         /// went back to refusing the ground moves it to zero, which the last check in the same property
@@ -160,7 +160,7 @@ namespace ArenaForge.Tests
 
         /// <summary>Most of any one map's road that may cross ground steeper than the limit.</summary>
         /// <remarks>
-        /// Five per cent, against a worst seed of 1.88%. A per-map bound as well as a total,
+        /// Five per cent, against a worst seed of 2.08%. A per-map bound as well as a total,
         /// because a thousand-seed average hides one map made entirely of switchbacks.
         /// </remarks>
         const float OverLimitSeedShare = 0.05f;
@@ -564,8 +564,8 @@ namespace ArenaForge.Tests
         /// testing what it emits rather than a superset of it.
         /// </para>
         /// <para>
-        /// <strong>And there is very little of it.</strong> Over seeds 1..1000, 318 m of 290,421 —
-        /// 0.109% — on 156 seeds, no one of them over 1.88% of its own road. See
+        /// <strong>And there is very little of it.</strong> Over seeds 1..1000, 396 m of 289,798 —
+        /// 0.137% — on 210 seeds, no one of them over 2.08% of its own road. See
         /// <see cref="OverLimitShare"/> and <see cref="OverLimitSeedShare"/> for what those became.
         /// </para>
         /// <para>

@@ -104,6 +104,7 @@ namespace ArenaForge.Editor
             Undo.undoRedoPerformed += OnUndoRedo;
             SceneView.duringSceneGui += OnSceneGui;
             Selection.selectionChanged += OnSelectionChanged;
+            _capture?.Watch();
         }
 
         void OnDisable()
@@ -112,6 +113,7 @@ namespace ArenaForge.Editor
             Undo.undoRedoPerformed -= OnUndoRedo;
             SceneView.duringSceneGui -= OnSceneGui;
             Selection.selectionChanged -= OnSelectionChanged;
+            _capture?.Release();
 
             DestroyTexture(ref _heatmapTexture);
             DestroyTexture(ref _rampTexture);
@@ -267,8 +269,10 @@ namespace ArenaForge.Editor
         void Bind(ArenaMap map)
         {
             _map = map;
+            _capture?.Release();
             _capture = map != null ? new ArenaEditCapture(map) : null;
             _capture?.Rebuild();
+            _capture?.Watch();
             _orphans.Clear();
             _acknowledgedOrphans.Clear();
             _report = null;
