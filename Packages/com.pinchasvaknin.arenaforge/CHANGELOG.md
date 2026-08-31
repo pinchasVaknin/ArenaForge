@@ -74,6 +74,30 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
+- **The edits are read before the roads are laid, so a barrier you moved or deleted counts as
+  moved or deleted.** `ArenaMap.Regenerate` used to hand the generator its parameters and copy the
+  overrides onto the finished document, which left the road stage looking at a world nobody had
+  touched. It now hands the edits *in*, and `ArenaLayoutGenerator` puts them on the document
+  between the anchored stages and the road stage.
+
+  What that buys is the case a snapshot of the hand-placed objects alone could not reach. A
+  generated fence records the ground it stands on when the stage stands it; drag that panel across
+  the map and the record stays behind, so a route was held off ground the fence had left and laid
+  straight through the ground it had gone to. The record is now restated for every generated barrier
+  the edits moved and dropped for every one they deleted — the panel's own pose is untouched, since
+  what moves it is still the override.
+
+  **Restated in the document rather than recomputed at the point of use.** Two things read that
+  key — the generation about to happen and every later replay — and only the first has a catalog to
+  measure a moved pose with.
+
+- **Cover keeps off the standing barriers too.** A road that goes round a hand-placed wall and a
+  crate scattered inside it are the same fault twice, and only the first was fixed: `CoverPlacer`
+  scatters against the generated world, which a user object is not part of. The barriers are folded
+  into the anchored list it already works from, so their ground is claimed before the sampler offers
+  a cell in it and committed so `NoOverlap` refuses a crate that would stand there. Over thirty
+  seeds, a panel dropped exactly where the seed had put a crate is clipped by nothing afterwards.
+
 - **A hard obstacle you placed by hand turns the roads at the next regeneration.** The barrier work
   above covers the fences the generator puts down, which say where they are in their own metadata. A
   hand-placed one cannot — it is an override rather than something a stage produced, and

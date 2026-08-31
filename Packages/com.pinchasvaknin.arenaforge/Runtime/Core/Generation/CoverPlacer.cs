@@ -152,6 +152,12 @@ namespace ArenaForge.Core
         /// <param name="terrain">The ground, with the structures' foundations already graded into it.</param>
         /// <param name="catalog">The art to draw from.</param>
         /// <param name="structures">Structures already committed, with their world footprints.</param>
+        /// <param name="standing">
+        /// Hand-placed obstacles this stage has to keep off, as
+        /// <see cref="ArenaLayoutGenerator.BarrierTag"/> describes them. Null for a map nobody has
+        /// edited. A crate through a wall somebody stood themselves is the same fault as a road
+        /// through one, and the road stage is handed the same list.
+        /// </param>
         /// <param name="anchored">
         /// What the anchored stages stood up before this one ran — the dressing round those
         /// structures and the fence round the map — which cover has to place around exactly as it
@@ -172,7 +178,8 @@ namespace ArenaForge.Core
             Catalog catalog,
             IReadOnlyList<MapStructure> structures,
             IReadOnlyList<Placement> anchored,
-            RoadNetwork roads)
+            RoadNetwork roads,
+            IReadOnlyList<Placement> standing = null)
         {
             if (doc == null)
             {
@@ -208,6 +215,13 @@ namespace ArenaForge.Core
             {
                 throw new ArgumentNullException(nameof(roads));
             }
+
+            // Folded into the anchored list rather than carried beside it, because the two things
+            // this stage does with that list are the two things a hand-placed wall wants: its
+            // ground is claimed so the sampler never offers a cell inside it, and it is committed
+            // so NoOverlap refuses a crate that would stand in it. A separate list would be the
+            // same two lines written twice.
+            anchored = Standing(anchored, standing);
 
             ArenaParams parameters = doc.Parameters;
             Validate(parameters);
@@ -691,6 +705,25 @@ namespace ArenaForge.Core
             }
 
             return nearest;
+        }
+
+        /// <summary>
+        /// The anchored art and the hand-placed obstacles as one list, or the anchored art itself
+        /// when there are none — which is every map nobody has edited.
+        /// </summary>
+        static IReadOnlyList<Placement> Standing(
+            IReadOnlyList<Placement> anchored, IReadOnlyList<Placement> standing)
+        {
+            if (standing == null || standing.Count == 0)
+            {
+                return anchored;
+            }
+
+            var both = new List<Placement>(anchored.Count + standing.Count);
+            both.AddRange(anchored);
+            both.AddRange(standing);
+
+            return both;
         }
 
         static ConstraintSet BuildConstraints(

@@ -446,21 +446,13 @@ namespace ArenaForge.Unity
         public ResolvedWorld Regenerate()
         {
             WorldDoc previous = Document;
-            Catalog catalog = RequireCatalog();
 
-            List<Rect2> standing = previous != null
-                ? ArenaLayoutGenerator.StandingBarriers(previous, catalog)
-                : null;
-
-            WorldDoc doc = ArenaLayoutGenerator.Generate(BuildParams(), catalog, standing);
-
-            if (previous != null)
-            {
-                for (int i = 0; i < previous.Overrides.Count; i++)
-                {
-                    doc.Overrides.Add(previous.Overrides[i]);
-                }
-            }
+            // The edits go in rather than on: the generator puts them on the document itself, and
+            // it does it before the roads are laid so a fence somebody moved or stood is ground the
+            // new network is routed round. Copying them on afterwards, which is what this did, left
+            // the road stage looking at a world nobody had touched.
+            WorldDoc doc = ArenaLayoutGenerator.Generate(
+                BuildParams(), RequireCatalog(), previous != null ? previous.Overrides : null);
 
             SetDocument(doc);
             return Realize();

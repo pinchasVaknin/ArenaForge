@@ -23,11 +23,12 @@ the cover that was already down floating over the new ground or buried under it.
 is what keeps the map still while you work on it. The cost is that hand placement is one regeneration
 behind.
 
-**Two smaller seams sit inside that one.** A *generated* object you have merely moved is recorded at
-the position the generator gave it, because the barriers are read before the override list is
-re-applied; and only the roads read the standing barriers, so the cover stage still scatters against
-the generated world alone. Neither has been asked for, and both would want the same decision made
-about what a stage is a function of.
+**What it covers is fences and structures, generated or hand-placed, moved or deleted.** The edits
+go on the document before the roads are laid, so a generated panel you dragged is recorded where you
+dragged it and one you deleted is not recorded at all; the cover stage is handed the same barriers,
+so a crate is not scattered into a wall you stood. Cover itself is deliberately not a barrier — a
+road is laid *past* a crate rather than round it, which is the reading the generated map already
+takes of its own cover.
 
 **The analysis is two-dimensional.** Occluders are rectangles on the XZ plane with a vertical span,
 and exposure is measured at one eye height on the ground. A two-storey building is a single

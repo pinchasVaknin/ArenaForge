@@ -294,7 +294,7 @@ namespace ArenaForge.Core
         /// will not fit in any lane of the map.
         /// </exception>
         public static WorldDoc Generate(
-            ArenaParams parameters, Catalog catalog, IReadOnlyList<Rect2> standing = null)
+            ArenaParams parameters, Catalog catalog, IReadOnlyList<EditOverride> carried = null)
         {
             if (parameters == null)
             {
@@ -309,12 +309,6 @@ namespace ArenaForge.Core
             ArenaLayout layout = ArenaLayout.Build(parameters);
             TerrainField terrain = TerrainField.Build(parameters);
             var doc = new WorldDoc { Parameters = parameters.Clone() };
-
-            // Written before anything is placed, because it is an input to this generation rather
-            // than something it produced — and because the replay has to read exactly what the road
-            // stage below was handed. Nothing is written when there is nothing standing, so a map
-            // generated without hand-placed obstacles is byte for byte the map it always was.
-            RecordStanding(doc, standing);
 
             EmitSpawnMarkers(doc, layout, terrain, catalog);
             List<MapStructure> structures = EmitStructures(doc, layout, terrain, catalog, parameters);
@@ -356,8 +350,25 @@ namespace ArenaForge.Core
             // Nothing is added to the document here. A network is a pure function of the parameters,
             // the ground and the placements, in the way ArenaLayout and TerrainField are, and this
             // is the one stage of the pipeline whose output is a reservation rather than an object.
+            // The edits carried over from the document being replaced go on now, before the roads
+            // are laid rather than after the map is finished. What a route has to be held off
+            // includes the fences somebody moved and the ones they stood themselves, and neither is
+            // knowable from the placements alone — see EditsBeforeTheRoads.
+            List<Placement> standing = EditsBeforeTheRoads(doc, carried, catalog);
+            var reserved = new List<Rect2>(standing.Count);
+            for (int i = 0; i < standing.Count; i++)
+            {
+                reserved.Add(standing[i].Footprint);
+            }
+
+            // Recorded because the replay has no catalog to measure a hand-placed object with, and
+            // frozen because a network that answered to the live override list would re-route the
+            // moment somebody dropped a crate — see StandingBarrierKeyPrefix. Nothing is written
+            // when nothing is standing, so an unedited map is byte for byte the map it always was.
+            RecordStanding(doc, reserved);
+
             RoadNetwork roads = RoadNetwork.Build(
-                parameters, layout, terrain, doc.GeneratedObjects, standing);
+                parameters, layout, terrain, doc.GeneratedObjects, reserved);
 
             // And then the ground under it, before anything else is stood on that ground. The
             // network was routed over the field as the structures left it, so it has to be graded
@@ -384,59 +395,62 @@ namespace ArenaForge.Core
             anchored.AddRange(
                 RoadFurniture.Place(doc, layout, terrain, catalog, roads, structures, anchored));
 
-            CoverPlacer.Place(doc, layout, terrain, catalog, structures, anchored, roads);
+            // The same barriers the roads were held off, because a crate through a hand-placed wall
+            // is the same fault as a road through one. The generated fences are already in
+            // `anchored` and are not passed again; what this adds is the ground the user took.
+            CoverPlacer.Place(
+                doc, layout, terrain, catalog, structures, anchored, roads, standing);
 
             return doc;
         }
 
         /// <summary>
-        /// The hand-placed obstacles standing in a document, as world rectangles, in document order.
+        /// Puts the carried edits on the document and hands back the hand-placed obstacles among
+        /// them, as placements, in document order.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// What to hand <see cref="Generate(ArenaParams, Catalog, IReadOnlyList{Rect2})"/> when
-        /// regenerating a map somebody has already edited, so the new roads are routed round the
-        /// fences they put there. Read off the <em>resolved</em> world, because a hand-placed object
-        /// is an override rather than a generated one — but only the objects under
-        /// <see cref="PlacedObject.UserIdPrefix"/>, because everything else
-        /// in there is about to be generated again somewhere else and last generation's fence is not
-        /// a fact about the next one.
+        /// <strong>Applied before the roads are laid, which is the whole of what this is for.</strong>
+        /// The edits used to go on after the map was finished, so the road stage saw a world nobody
+        /// had touched: a fence somebody stood by hand was invisible to it, and a generated fence
+        /// somebody had <em>moved</em> was worse than invisible — it was recorded at the position
+        /// the generator gave it, so a route was held off ground the fence had left and laid through
+        /// the ground it had gone to.
         /// </para>
         /// <para>
-        /// The catalog is needed and only here: a placement records a pose, and how much ground that
-        /// pose covers is a fact about the art. That is the whole reason the answer is recorded into
-        /// the document afterwards — see <see cref="StandingBarrierKeyPrefix"/> — rather than worked
-        /// out again by a replay that has no catalog to work it out from.
+        /// <strong>Only the road and cover stages see the difference.</strong> This runs after every
+        /// anchored stage has placed what it places, so nothing that reads the document is looking
+        /// at a half-generated one, and the two stages that are handed the result read placements
+        /// rather than the document itself.
         /// </para>
         /// <para>
-        /// A row the catalog no longer has is skipped rather than guessed at, on the same terms as
-        /// <see cref="Analysis.MapAnalyzer"/>: art that has gone occupies nothing.
+        /// Placements rather than rectangles because the cover stage commits them into a
+        /// <see cref="ConstraintSet"/>, which is stated in placements; the roads take their
+        /// footprints. A row the catalog no longer has is skipped rather than guessed at, on the
+        /// same terms as <see cref="Analysis.MapAnalyzer"/>: art that has gone occupies nothing.
         /// </para>
         /// </remarks>
-        /// <param name="doc">The document being regenerated, with its edits still on it.</param>
-        /// <param name="catalog">The art the placements name, for their footprints.</param>
-        /// <exception cref="ArgumentNullException">Either argument is null.</exception>
-        public static List<Rect2> StandingBarriers(WorldDoc doc, Catalog catalog)
+        static List<Placement> EditsBeforeTheRoads(
+            WorldDoc doc, IReadOnlyList<EditOverride> carried, Catalog catalog)
         {
-            if (doc == null)
+            var standing = new List<Placement>();
+            if (carried == null || carried.Count == 0)
             {
-                throw new ArgumentNullException(nameof(doc));
+                return standing;
             }
 
-            if (catalog == null)
+            for (int i = 0; i < carried.Count; i++)
             {
-                throw new ArgumentNullException(nameof(catalog));
+                doc.Overrides.Add(carried[i]);
             }
 
-            var standing = new List<Rect2>();
             IReadOnlyList<PlacedObject> world = doc.Resolve().Objects;
+            var moved = new Dictionary<string, Rect2>(StringComparer.Ordinal);
 
             for (int i = 0; i < world.Count; i++)
             {
                 PlacedObject placed = world[i];
-                if (!placed.StableId.StartsWith(
-                        PlacedObject.UserIdPrefix, StringComparison.Ordinal) ||
-                    !IsBarrier(placed))
+                if (!IsBarrier(placed))
                 {
                     continue;
                 }
@@ -448,19 +462,95 @@ namespace ArenaForge.Core
                 }
 
                 Rect2 footprint = placed.Pose.Bounds(entry.Footprint);
-                if (footprint.Width > 0f && footprint.Depth > 0f)
+                if (!(footprint.Width > 0f) || !(footprint.Depth > 0f))
                 {
-                    standing.Add(footprint);
+                    continue;
+                }
+
+                if (placed.StableId.StartsWith(PlacedObject.UserIdPrefix, StringComparison.Ordinal))
+                {
+                    standing.Add(new Placement(
+                        placed.LogicalId, placed.Pose, footprint, placed.Tags));
+                }
+                else
+                {
+                    // A generated barrier, at wherever the edits have left it. Kept by id so the
+                    // pass below can tell the ones that were moved from the ones that were not.
+                    moved[placed.StableId] = footprint;
                 }
             }
 
+            Restate(doc, moved);
             return standing;
+        }
+
+        /// <summary>
+        /// Rewrites the recorded footprint of every generated barrier the edits moved, and drops it
+        /// from every one they deleted.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <see cref="BarrierKey"/> holds the ground a panel stands on, written when the stage stood
+        /// it — which is the right answer for a map nobody has edited and the wrong one for a panel
+        /// somebody has dragged three metres. The rectangle cannot follow the pose on its own: it is
+        /// a world box, and the object it belongs to is immutable, so the correction is a copy of the
+        /// object carrying the new figure.
+        /// </para>
+        /// <para>
+        /// <strong>Rewritten rather than recomputed at the point of use.</strong> Two things read
+        /// this key — the generation about to happen and every later replay of the document — and
+        /// only the first has a catalog to measure a moved pose with. Putting the answer in the
+        /// document is what keeps the two identical.
+        /// </para>
+        /// <para>
+        /// The <em>generated</em> pose is left exactly as it was. What moves the panel is still the
+        /// override, applied when the document is resolved; all that changes here is the map's
+        /// record of which ground it covers.
+        /// </para>
+        /// </remarks>
+        static void Restate(WorldDoc doc, Dictionary<string, Rect2> moved)
+        {
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                PlacedObject placed = doc.GeneratedObjects[i];
+                if (!placed.Metadata.TryGetValue(BarrierKey, out string was))
+                {
+                    continue;
+                }
+
+                bool survives = moved.TryGetValue(placed.StableId, out Rect2 now);
+                string becomes = survives ? RectMetadata.Format(now) : null;
+
+                if (string.Equals(was, becomes, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var metadata = new Dictionary<string, string>();
+                foreach (KeyValuePair<string, string> entry in placed.Metadata)
+                {
+                    metadata[entry.Key] = entry.Value;
+                }
+
+                if (becomes == null)
+                {
+                    // Deleted: a road has no reason to go round a fence that will not be there.
+                    metadata.Remove(BarrierKey);
+                }
+                else
+                {
+                    metadata[BarrierKey] = becomes;
+                }
+
+                doc.GeneratedObjects[i] = new PlacedObject(
+                    placed.StableId, placed.LogicalId, placed.Pose, ToArray(placed.Tags), metadata);
+            }
         }
 
         /// <summary>True for a placement a road may not be laid through.</summary>
         /// <remarks>
         /// Two tags, and the vocabulary is the workspace's rather than this file's — see
-        /// <see cref="BarrierTag"/>. Any prefix of the fence path counts, so a piece filed in
+        /// <see cref="BarrierTag"/>. Any depth of the fence path counts, so a piece filed in
         /// <c>Props/fence/StoneFence</c> is one whether the row carries the root tag or only the
         /// leaf.
         /// </remarks>
