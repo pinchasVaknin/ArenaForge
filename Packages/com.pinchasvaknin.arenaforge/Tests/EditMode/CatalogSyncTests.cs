@@ -267,6 +267,61 @@ namespace ArenaForge.Tests
 
         /// <remarks>
         /// <para>
+        /// The case that was making art hover, and the reason the offset is signed. A pot whose
+        /// modeller left the pivot below the art reaches <em>up</em> from its pivot rather than
+        /// down, so the lift that stands it on a floor is a negative one — and the figure was being
+        /// clamped at zero, which stood the pivot on the floor and left the art in the air by
+        /// exactly the amount that had been thrown away.
+        /// </para>
+        /// <para>
+        /// A metre here, which is absurd for a plant and is the point: nothing downstream reports
+        /// the number, so the only way the fault shows is as a piece of art visibly off the ground,
+        /// and how far off depends entirely on how far the modeller was out. What is asserted is
+        /// the sign and the arithmetic, not a tolerance.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ArtModelledAboveItsPivotIsMeasuredAsReachingUpFromIt()
+        {
+            WritePrefab("Decor", "Potted", new Vector3(1f, 1f, 1f), new Vector3(0f, 1.5f, 0f));
+
+            CatalogSync.Sync(_catalog, Root);
+            CatalogAsset.Row row = Row("prop/decor/potted");
+
+            Assert.That(row.Height, Is.EqualTo(2f).Within(1e-4f));
+            Assert.That(row.BaseOffset, Is.EqualTo(-1f).Within(1e-4f),
+                "art whose lowest point is above its pivot has to be lowered, not lifted");
+
+            CatalogEntry entry = _catalog.ToCatalog().Find("prop/decor/potted");
+            Assert.That(entry.BaseOffset, Is.EqualTo(-1f).Within(1e-4f),
+                "the sign has to survive the trip into the catalog Core reads");
+
+            Assert.That(entry.StandingHeight, Is.EqualTo(1f).Within(1e-4f),
+                "the piece is a metre tall however its pivot is placed");
+        }
+
+        /// <remarks>
+        /// The half of the same fix that a person actually sees: the piece placed on level ground
+        /// stands <em>on</em> it. Asserted through <see cref="Placement.AtQuarterTurn"/> rather than
+        /// on the row alone, because the row is only half the arithmetic and it is the other half
+        /// that used to leave the plant floating.
+        /// </remarks>
+        [Test]
+        public void ArtModelledAboveItsPivotIsStillPlacedOnTheGround()
+        {
+            WritePrefab("Decor", "Standing", new Vector3(1f, 1f, 1f), new Vector3(0f, 1.5f, 0f));
+
+            CatalogSync.Sync(_catalog, Root);
+            CatalogEntry entry = _catalog.ToCatalog().Find("prop/decor/standing");
+
+            Placement placed = Placement.AtQuarterTurn(entry, Vec2.Zero, 0);
+
+            Assert.That(placed.Pose.Position.Y + 1f, Is.EqualTo(0f).Within(1e-4f),
+                "the underside of the art should land on the surface, not a metre over it");
+        }
+
+        /// <remarks>
+        /// <para>
         /// Art modelled off to one side is measured at its own size, with the offset from the pivot
         /// recorded beside it. A row used to be able to say only how big something was, so this
         /// came back as the box that held the collider <em>and</em> was centred on the pivot —

@@ -94,7 +94,7 @@ namespace ArenaForge.Core
 
         /// <summary>
         /// How far the art hangs <em>below</em> its pivot, in metres. Zero for art modelled with
-        /// its pivot on the ground.
+        /// its pivot on the ground, and negative for art whose lowest point is above its pivot.
         /// </summary>
         /// <remarks>
         /// <para>
@@ -108,6 +108,17 @@ namespace ArenaForge.Core
         /// the catalog pretending every pivot is on the ground. It is the one fact about a piece of
         /// art that cannot be recovered from a footprint and a height: both of those are measured
         /// outward from the pivot and neither says where the pivot <em>is</em>.
+        /// </para>
+        /// <para>
+        /// <strong>It may be negative, and refusing that is what used to leave art hovering.</strong>
+        /// Read as a lift rather than as a distance, the sign is not an oddity: a modeller who left
+        /// the pivot below the art has said the piece must be lowered by that much to stand on
+        /// something, and the whole of the arithmetic downstream — <see cref="Placement"/>, the
+        /// building stages, the road furniture — is the same addition either way. This used to
+        /// throw, on the reading that art above its own pivot was a mistake in the measurement.
+        /// It is not: it is a fact about somebody else's art pack, and the only thing rejecting it
+        /// achieved was that the piece was stood with its pivot on the floor and its art in the air
+        /// by exactly the amount that had been discarded.
         /// </para>
         /// </remarks>
         [JsonProperty("baseOffset", Order = 4)]
@@ -154,6 +165,11 @@ namespace ArenaForge.Core
         /// How tall the piece stands above the surface it rests on, in metres — what has to fit
         /// under a ceiling, as against <see cref="Height"/>, which is measured from the pivot.
         /// </summary>
+        /// <remarks>
+        /// The art's own extent, top to bottom, however its pivot is placed: the height above the
+        /// pivot plus the reach below it, which is a subtraction when
+        /// <see cref="BaseOffset"/> is negative and comes out the same size either way.
+        /// </remarks>
         public float StandingHeight => Height + BaseOffset;
 
         /// <summary>Creates an entry.</summary>
@@ -166,7 +182,7 @@ namespace ArenaForge.Core
         /// <param name="baseOffset">How far the art reaches below its pivot, in metres.</param>
         /// <param name="doorways">Where the art can be walked into, in its own space, or null.</param>
         /// <exception cref="ArgumentException">The id is blank, or a socket name is duplicated.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">Height or base offset is negative, weight is not positive, or the footprint is inverted.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">Height is negative, weight is not positive, or the footprint is inverted.</exception>
         [JsonConstructor]
         public CatalogEntry(
             string logicalId,
@@ -193,16 +209,6 @@ namespace ArenaForge.Core
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(height), height, $"Height of '{logicalId}' must not be negative.");
-            }
-
-            // A negative offset would mean art floating above its own pivot, which is a measurement
-            // mistake rather than a way of modelling something: the pivot is where the placement
-            // puts the piece, so art above it would hover over whatever it was stood on.
-            if (baseOffset < 0f)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(baseOffset), baseOffset,
-                    $"Base offset of '{logicalId}' must not be negative.");
             }
 
             // A zero weight is rejected rather than silently excluded from selection: in practice

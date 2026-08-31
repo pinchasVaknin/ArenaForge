@@ -921,16 +921,29 @@ namespace ArenaForge.Editor
 
         /// <summary>Writes what a measured box says into a row.</summary>
         /// <remarks>
+        /// <para>
         /// Internal rather than private because the merge tool writes a row for a prefab it has
         /// just created, and a row measured a second way would be a row that disagreed with the
         /// next sync of the same folder.
+        /// </para>
+        /// <para>
+        /// <strong>The base offset is signed, and clamping it at zero was making art float.</strong>
+        /// It is how far the pivot has to be lifted for the underside of the art to land on the
+        /// surface, and for art whose lowest point is <em>above</em> its own pivot — a plant in a
+        /// pot modelled a little off the origin, and plenty of bought art besides — that lift is
+        /// downwards. Held at zero the piece was stood with its pivot on the ground and its art in
+        /// the air by exactly the amount that was thrown away, which is a hover nothing downstream
+        /// could see the cause of. A negative offset is not a measurement mistake to be corrected
+        /// here; it is a pivot the modeller put below the art, and saying so is the whole of the
+        /// fix. See <see cref="ArenaForge.Core.CatalogEntry.BaseOffset"/>.
+        /// </para>
         /// </remarks>
         internal static void Apply(CatalogAsset.Row row, Bounds bounds)
         {
             row.FootprintSize = new Vector2(bounds.size.x, bounds.size.z);
             row.FootprintOffset = new Vector2(bounds.center.x, bounds.center.z);
             row.Height = Mathf.Max(0f, bounds.max.y);
-            row.BaseOffset = Mathf.Max(0f, -bounds.min.y);
+            row.BaseOffset = -bounds.min.y;
         }
 
         /// <summary>

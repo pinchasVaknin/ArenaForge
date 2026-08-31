@@ -11,6 +11,22 @@ the code.
 
 ## Known limitations, with what fixing them would take
 
+**A fence you placed by hand does not turn a road.** The three fencing stages record the ground each
+panel stands on and `RoadNetwork` shuts it, so a *generated* fence is an obstacle a route goes round.
+A fence you drop in yourself is not: `ArenaLayoutGenerator.Generate` and `Terrain(doc)` both hand the
+router `doc.GeneratedObjects`, so nothing under `user/` reaches it at all.
+
+That is not an oversight in the barrier work, it is the seam the barrier work stopped at. The roads
+are laid *during* generation and graded into the terrain everything else is then stood on, so a
+network that answered to user objects would re-route — and re-grade the ground under every placed
+object — every time somebody dropped a crate. Making it work means deciding what a road is a function
+of, and the honest options are both large: recompute the network on every edit and accept that hand
+placement moves the map, or keep a second reservation layer that user objects feed and roads respect
+only at the next explicit regenerate. Neither is a change to make while nobody has asked for it.
+
+The workaround is the one the tool already has: place the fence, then regenerate. It will not become
+an obstacle, but the cover stage will keep off the carriageway either way.
+
 **The analysis is two-dimensional.** Occluders are rectangles on the XZ plane with a vertical span,
 and exposure is measured at one eye height on the ground. A two-storey building is a single
 footprint that blocks sightlines through it; nobody stands on its upper floor. Fixing this properly
@@ -582,11 +598,3 @@ span a gap comes back to the floor the moment it is nudged. The alternative that
 rejected is snapping only what was already on the ground, which costs the case the feature is for —
 lifting a crate onto a second floor. What would cover both is a way to say *this one is airborne*,
 either a modifier held during the drag or a flag on the override, and neither is there.
-
-**An imported size correction still cannot go on a prefab's root.** `ArenaAssetImport` scales the
-children and refuses art modelled straight onto the root, because a scale on the root used to cancel
-out of the measurement `CatalogSync` took. It does not any more — the measurement counts it and
-`WorldRealizer` composes it rather than overwriting it — so the correction could live on the root
-and root-modelled art could be corrected like anything else. What stops it is that nothing has moved
-it, and moving it changes the size of every piece of art imported that way.
-

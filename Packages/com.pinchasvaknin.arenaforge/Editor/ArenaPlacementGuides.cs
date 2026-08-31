@@ -59,27 +59,7 @@ namespace ArenaForge.Editor
         /// </summary>
         public static void Draw(ArenaMap map)
         {
-            if (map == null || !map.HasDocument)
-            {
-                return;
-            }
-
-            WorldDoc doc;
-            ArenaLayout layout;
-            try
-            {
-                doc = map.Document;
-                layout = ArenaLayout.Build(doc.Parameters);
-            }
-            catch (Exception error) when (error is ArgumentException ||
-                                          error is InvalidOperationException ||
-                                          error is UnsupportedSchemaVersionException)
-            {
-                return;
-            }
-
-            CatalogAsset asset = map.Realizer != null ? map.Realizer.Catalog : null;
-            if (asset == null)
+            if (!TryOpen(map, out WorldDoc doc, out ArenaLayout layout, out CatalogAsset asset))
             {
                 return;
             }
@@ -90,27 +70,120 @@ namespace ArenaForge.Editor
                 return;
             }
 
+            // After the selection and not before it, because this builds a whole catalog and most
+            // repaints have nothing of this map's selected to build it for.
             Catalog catalog = asset.ToCatalog();
-            IReadOnlyList<Rect2> corridors = map.Roads != null ? map.Roads.Corridors : null;
-            TerrainField ground = map.Ground;
+            HandleState previous = Begin(map);
 
-            Matrix4x4 previousMatrix = Handles.matrix;
-            Color previousColor = Handles.color;
-            CompareFunction previousZTest = Handles.zTest;
+            for (int i = 0; i < Subjects.Count; i++)
+            {
+                DrawVerdict(
+                    layout, doc, catalog, Corridors(map), map.Ground, Subjects[i]);
+            }
+
+            previous.Restore();
+            Subjects.Clear();
+        }
+
+        /// <summary>
+        /// Draws the verdict for one object that is not in the document — a prefab still under the
+        /// cursor.
+        /// </summary>
+        /// <remarks>
+        /// The same query and the same colours as a selected object gets, because it is the same
+        /// question: a drag is a placement somebody has not committed to yet, and the point of
+        /// answering it early is that the answer is the one they will get. Separate from
+        /// <see cref="Draw"/> only because the subject comes from a drag rather than from the
+        /// selection — see <see cref="ArenaDragGuides"/>.
+        /// </remarks>
+        public static void DrawPending(ArenaMap map, PlacedObject subject)
+        {
+            // Structures are skipped here for the reason they are skipped in the selection: a
+            // building is placed by another stage under other rules, and asked under these it would
+            // be refused for standing near its neighbour.
+            if (subject == null || IsStructure(subject) ||
+                !TryOpen(map, out WorldDoc doc, out ArenaLayout layout, out CatalogAsset asset))
+            {
+                return;
+            }
+
+            HandleState previous = Begin(map);
+            DrawVerdict(layout, doc, asset.ToCatalog(), Corridors(map), map.Ground, subject);
+            previous.Restore();
+        }
+
+        /// <summary>
+        /// The three things every verdict is measured against, or false where the map cannot say.
+        /// </summary>
+        /// <remarks>
+        /// The catalog asset rather than the catalog it converts to, because converting one builds
+        /// every row and each caller knows a different point at which it is worth doing.
+        /// </remarks>
+        static bool TryOpen(
+            ArenaMap map, out WorldDoc doc, out ArenaLayout layout, out CatalogAsset asset)
+        {
+            doc = null;
+            layout = null;
+            asset = map != null && map.Realizer != null ? map.Realizer.Catalog : null;
+
+            if (map == null || !map.HasDocument || asset == null)
+            {
+                return false;
+            }
+
+            try
+            {
+                doc = map.Document;
+                layout = ArenaLayout.Build(doc.Parameters);
+            }
+            catch (Exception error) when (error is ArgumentException ||
+                                          error is InvalidOperationException ||
+                                          error is UnsupportedSchemaVersionException)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        static IReadOnlyList<Rect2> Corridors(ArenaMap map) =>
+            map.Roads != null ? map.Roads.Corridors : null;
+
+        /// <summary>Puts the handles into the map's own space, handing back what was there.</summary>
+        /// <remarks>
+        /// Returned rather than stashed in a static, because two callers draw through this in one
+        /// repaint and a shared slot would have the second one restore the first one's state.
+        /// </remarks>
+        static HandleState Begin(ArenaMap map)
+        {
+            var previous = new HandleState(Handles.matrix, Handles.color, Handles.zTest);
 
             Handles.matrix = map.transform.localToWorldMatrix;
             Handles.zTest = CompareFunction.LessEqual;
 
-            for (int i = 0; i < Subjects.Count; i++)
+            return previous;
+        }
+
+        /// <summary>What the handles were set to before a draw, so it can be put back.</summary>
+        readonly struct HandleState
+        {
+            readonly Matrix4x4 _matrix;
+            readonly Color _color;
+            readonly CompareFunction _zTest;
+
+            public HandleState(Matrix4x4 matrix, Color color, CompareFunction zTest)
             {
-                DrawVerdict(layout, doc, catalog, corridors, ground, Subjects[i]);
+                _matrix = matrix;
+                _color = color;
+                _zTest = zTest;
             }
 
-            Handles.zTest = previousZTest;
-            Handles.color = previousColor;
-            Handles.matrix = previousMatrix;
-
-            Subjects.Clear();
+            public void Restore()
+            {
+                Handles.zTest = _zTest;
+                Handles.color = _color;
+                Handles.matrix = _matrix;
+            }
         }
 
         static void DrawVerdict(

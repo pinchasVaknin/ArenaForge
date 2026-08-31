@@ -8,6 +8,30 @@ All notable changes to this package are documented here. The format follows
 
 ### Changed
 
+- **Imported art is centred over its root, so turning it turns it in place.** A pose puts a pivot
+  somewhere and turns the root about it, so art the modeller left off that pivot travels an arc of
+  its own offset every time it is turned — the workspace's own stone boundary panel measures its art
+  **sixteen metres** from its pivot, which is most of a lane. `ArenaAssetImport` now measures the
+  finished wrapper and slides the nested art until its centre is over the origin.
+
+  **X and Z, and deliberately not Y.** How far a piece reaches below its pivot is what
+  `CatalogEntry.BaseOffset` records and every placement stage adds back, and `PerimeterFence` plants
+  a boundary panel *on* its pivot precisely so the deep foundation modelled under it goes
+  underground. Centring the height would bury half of every wall. The yaw is about Y, so the ground
+  plane is the whole of what the orbit was made of anyway.
+
+  Rows measured off art that moves want re-syncing, and the window says so.
+
+- **`Import Art` can write over the prefab it already made.** An `Overwrite existing` toggle, off by
+  default. Writing beside is the safe default and the wrong one for what people actually do with
+  this — fix the art, import it again, and find `Barrel 1` beside `Barrel` with every catalog row,
+  saved map and scene still pointing at the old one. Saving over the path keeps the asset's GUID, so
+  all three follow the re-import.
+
+  **Never over the art being imported.** A source filed in the folder it is being imported into is
+  somebody importing in place, and replacing it there would write a wrapper round a model over the
+  model that wrapper nests. That case falls back to a fresh name whatever the toggle says.
+
 - **`Pose.Bounds` replaces three copies of the same box.** The analyser's walkable set, the
   placement rules and now the edge snap each measured the world bounds a pose gives a footprint.
   The arithmetic is unchanged from the copies it replaces, corner for corner and comparison for
@@ -49,6 +73,31 @@ All notable changes to this package are documented here. The format follows
   the editor's own runtime, the way its remarks require, and those remarks now say why it moved.
 
 ### Added
+
+- **The placement guides are drawn while a prefab is still being dragged, not after it lands.**
+  `ArenaDragGuides` hooks `SceneView.duringSceneGui` and answers, on every `DragUpdated`, the two
+  questions somebody dragging a crate into an arena is actually asking: where it will land — which
+  is not where the cursor is, because an edge in reach pulls it — and whether the rules will allow
+  it there.
+
+  `ArenaDropWatch` answers both correctly one tick *after* the decision has been made, which is a
+  fact about something that has already happened. What it left missing was the whole of the guidance.
+
+  **It computes nothing of its own.** The landing pose is `ArenaEditCapture.Preview`, which is the
+  edge snap, grid fallback and drop the adoption applies on the way in; the verdict is
+  `ArenaPlacementGuides.DrawPending`, which goes through `CoverPlacer.TryJudge` like every other
+  verdict in the editor. A preview worked out separately would be a second opinion about where a
+  drop lands, and the one on screen would be the one that drifted.
+
+  **Nothing consumes the event.** The drop stays Unity's and the adoption stays the watch's — taking
+  `DragPerform` would mean re-implementing prefab instantiation, undo and parenting to draw a
+  preview, and would put the delivery half of the feature back on a path no test can drive, which is
+  the whole reason the watch works by looking rather than by listening.
+
+  Both drags are previewed: the tool window's catalog panel, which carries a logical id, and the
+  Project window, which carries a prefab the catalog asset binds to a row. Art the catalog has never
+  heard of draws nothing. One map with a document, or nothing happens, on the same terms as
+  `ArenaDropWatch` — and it shares that watch's answer to which map, so the two can never disagree.
 
 - **Art somebody else modelled is imported as a prefab variant, fitted with a collider and corrected
   to size.** `ArenaAssetImport` beside `ArenaAssetBuilder` — beside rather than inside, because that
@@ -113,6 +162,51 @@ All notable changes to this package are documented here. The format follows
   Folders is how one is made.
 
 ### Fixed
+
+- **A road is no longer laid through a fence.** The router judged the ground, the playfield margin
+  and the structures' pads, and nothing else — so a fence, which is the one piece of dressing a
+  player cannot walk through, was invisible to it. Measured over sixty seeds of `ExteriorCatalog` at
+  a road density of one, **fifty-nine of the sixty had a carriageway centreline running through the
+  middle of a fence panel**; after the change, none of them does.
+  `RoadPipelineTests.NoRoadIsLaidThroughAFence` is that measurement.
+
+  **The three fencing stages record the ground they stood on, and the router shuts it.**
+  `PerimeterFence`, `SpawnEnclosure` and the yard run in `ExteriorPlacer` write their world footprint
+  under `ArenaLayoutGenerator.BarrierKey`, exactly as a structure records its pad under
+  `FoundationKey`, and `RoadNetwork.Collect` gathers them for `RoadRouter` to mark impassable.
+
+  **A rectangle in the document rather than a lookup in the catalog**, and that is the whole of why
+  it is metadata. `ArenaLayoutGenerator.Terrain(doc)` replays the ground a saved map was generated
+  on and is handed no catalog; a network that needed one to route would move under a map every time
+  somebody reimported their art pack. So the barrier says how big it is at the moment it is
+  committed, and the replay reads what was written.
+
+  **The panels, not a ring round them.** A fence is a line, so shutting a ring would close whatever
+  it encircled — a yard, a spawn, and at the boundary the whole map. The gaps the fencing stages
+  leave are gaps here too, because a gap is a panel that was never placed and so is a rectangle that
+  was never recorded, and the doorway approaches are opened last so a house always keeps a way in.
+
+  **Only fences carry the key.** A hedge, a bench and a stack of barrels are things a road is laid
+  past rather than round, which is the reading `WalkableGrid` takes of the same objects.
+
+  **It costs the network almost nothing**, which is the half a blunter fix would fail: over the same
+  sixty seeds the mean corridor goes from 207.9 m to 202.2 m and no seed comes back with an empty
+  network. `RoadPipelineTests.FencingAMapStillLeavesItARoadNetwork` holds it there.
+
+- **A base offset may be negative, so art modelled above its own pivot stands on the ground instead
+  of over it.** `CatalogSync.Apply` clamped the measured offset at zero and `CatalogEntry` threw on
+  anything below it, on the reading that art above its pivot was a mistake in the measurement. It is
+  not a mistake, it is somebody else's art pack — a potted plant whose modeller left the pivot a
+  little under the pot — and the clamp did not correct it. It stood the pivot on the floor and left
+  the art hanging by exactly the amount that had been discarded.
+
+  Read as a lift rather than as a distance the sign is not an oddity: `Placement` adds it to the
+  surface either way, and a piece whose art starts above its pivot needs that pivot put *below* the
+  surface. `StandingHeight` is unchanged in meaning — the art's own extent, top to bottom.
+
+  **Nothing already measured moves.** The clamp was `Mathf.Max(0f, -bounds.min.y)`, which for art
+  sitting exactly on its pivot already returned negative zero and passed the guard; every row whose
+  art reaches down is untouched, and the only rows that change are the ones that were floating.
 
 - **The layout guides and their labels follow the ground.** `ArenaLayoutGuides` drew the playfield,
   the lane bands and the spawn areas at three fixed heights a few centimetres over zero, which on a
@@ -233,6 +327,30 @@ All notable changes to this package are documented here. The format follows
   default changed still holds the value it was serialised with. That is why the earlier default
   change appeared to do nothing to an existing scene, and it is why this fix is in the router rather
   than in another number.
+
+- **An imported prefab is an empty root with the art nested under it.** It was a prefab variant,
+  and a variant's root *is* the source's root — so art modelled straight onto a prefab root came out
+  of the import flat, mesh and collider on the imported root with nothing underneath. That is a
+  prefab `MeshRotation` has to refuse, because the only transform there to turn is the one the
+  generator poses through. An empty root is at rotation zero and scale one because there is nothing
+  on it to put it anywhere else, and it always has exactly one child to turn.
+
+  **Still a reference to the source, not a copy of it.** The art is nested rather than duplicated, so
+  an art pack can be updated in place and the change follows through — which is what the variant was
+  chosen for in the first place, and the only property of it worth keeping. `ImportedAsset.Variant`
+  is `ImportedAsset.Prefab` now, because a field named for something it is not is the kind of thing
+  that misleads a year later.
+
+  **The collider is fitted before the correction, where it used to be fitted after.** The old order
+  had a reason: the scale went on the source's grandchildren and the collider on the root, so the
+  collider was not scaled by it and had to be measured last. Both now live on the `Art` child, so
+  fitting last would count the scale twice. Fitted at scale one and scaled afterwards, the box goes
+  with the mesh — which is also what keeps the two together when the art is turned.
+
+  **Two things fall out of it.** The correction is one scale on one transform instead of a scale and
+  a shifted position on each of the source's children; and art modelled straight onto its root is now
+  corrected like anything else, where it used to be reported unchanged for want of anywhere to put a
+  scale. That retires the note in FUTURE.md about the correction not being able to live on a root.
 
 - **A dropped prefab is adopted again, and this time by something the suite can reach.**
   `ArenaDropWatch` replaces the `ObjectChangeEvents` subscription that never worked.

@@ -490,11 +490,13 @@ namespace ArenaForge.Core
             Validate(parameters);
 
             var structures = new List<Rect2>();
+            var barriers = new List<Rect2>();
             var doorways = new List<RoadDoorway>();
-            Collect(committed, parameters.PathWidth, structures, doorways);
+            Collect(committed, parameters.PathWidth, structures, barriers, doorways);
 
             List<Rect2> gaps = LaneGaps(layout);
-            var router = new RoadRouter(parameters, layout, terrain, committed, structures, doorways, gaps);
+            var router = new RoadRouter(
+                parameters, layout, terrain, committed, structures, barriers, doorways, gaps);
 
             // Half the widest carriageway the map can hold, which is how much ground a crossing of
             // any two roads here covers. One radius for every junction rather than one worked out
@@ -1431,9 +1433,19 @@ namespace ArenaForge.Core
         /// <para>
         /// A structure is an object that declares doorways, and the ground it stands on is the pad
         /// its foundation was graded to. Both are already in its metadata, which is what lets this
-        /// run without a catalog. Everything else the map holds is passed over: cover is something a
-        /// road is laid through rather than round, which is the model <see cref="WalkableGrid"/>
-        /// takes of the same objects and for the same reason.
+        /// run without a catalog. A barrier says so the same way — see
+        /// <see cref="ArenaLayoutGenerator.BarrierKey"/> — and a fence panel is the only thing that
+        /// does. Everything else the map holds is passed over: cover is something a road is laid
+        /// through rather than round, which is the model <see cref="WalkableGrid"/> takes of the
+        /// same objects and for the same reason.
+        /// </para>
+        /// <para>
+        /// <strong>A fence is not cover and was being treated as though it were.</strong> A route
+        /// judged nothing but ground and pads, so it ran through the wall round a yard and over the
+        /// ring round a spawn — art tall enough to stop a player, drawn straight across a
+        /// carriageway. The fencing stages record what they stood on for exactly this, so the ground
+        /// under a panel is shut before a single route is searched rather than apologised for
+        /// afterwards.
         /// </para>
         /// <para>
         /// Document order throughout, so two runs over the same document number the portals the same
@@ -1447,13 +1459,29 @@ namespace ArenaForge.Core
             IReadOnlyList<PlacedObject> committed,
             float pathWidth,
             List<Rect2> structures,
+            List<Rect2> barriers,
             List<RoadDoorway> doorways)
         {
             for (int i = 0; i < committed.Count; i++)
             {
                 PlacedObject placed = committed[i];
-                if (placed == null ||
-                    !placed.Metadata.TryGetValue(
+                if (placed == null)
+                {
+                    continue;
+                }
+
+                // A rectangle with no width is not a fence, and Shut would still close the one
+                // cell its corner falls in — a metre of ground taken out of the map for a panel
+                // that occupies none. The same guard the pad above uses, for the same reason.
+                if (placed.Metadata.TryGetValue(
+                        ArenaLayoutGenerator.BarrierKey, out string barrierText) &&
+                    RectMetadata.TryParse(barrierText, out Rect2 barrier) &&
+                    barrier.Width > 0f && barrier.Depth > 0f)
+                {
+                    barriers.Add(barrier);
+                }
+
+                if (!placed.Metadata.TryGetValue(
                         ArenaLayoutGenerator.DoorwayCountKey, out string countText) ||
                     !int.TryParse(
                         countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int count))
@@ -2234,13 +2262,14 @@ namespace ArenaForge.Core
         int _coveredCells;
         int _independentCells;
 
-        /// <summary>Builds the cost grid a map's ground, lanes and structures describe.</summary>
+        /// <summary>Builds the cost grid a map's ground, lanes, structures and fences describe.</summary>
         public RoadRouter(
             ArenaParams parameters,
             ArenaLayout layout,
             TerrainField terrain,
             IReadOnlyList<PlacedObject> committed,
             List<Rect2> structures,
+            List<Rect2> barriers,
             List<RoadDoorway> doorways,
             List<Rect2> gaps)
         {
@@ -2302,6 +2331,21 @@ namespace ArenaForge.Core
                 Shut(structures[i]);
             }
 
+            // The footprint each fence panel stands on, and nothing round it. A fence is a line
+            // rather than an area, so a ring would close whatever it encircled — a yard, a spawn,
+            // and on the boundary the whole map — where what is wanted is that a route may not
+            // cross the line. The gaps the fencing stages leave are gaps here too, because a gap is
+            // a panel that was never placed and so is a rectangle that was never recorded.
+            for (int i = 0; i < barriers.Count; i++)
+            {
+                Shut(barriers[i]);
+            }
+
+            // Last, so a doorway's approach reopens whatever was shut across it. A yard fence has a
+            // gate at each of its house's doors and the two are arranged not to collide, but a gate
+            // is drawn from the fence's own geometry and an approach from the pad's — and where a
+            // panel's corner does clip an approach, a house with a road to a wall is a worse answer
+            // than a road that passes the end of a fence.
             for (int i = 0; i < doorways.Count; i++)
             {
                 Open(doorways[i].Approach);

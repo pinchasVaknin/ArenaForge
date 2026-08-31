@@ -576,6 +576,11 @@ namespace ArenaForge.Editor
         /// The object being placed, left out of its own neighbour list. Null for one that is not in
         /// the document yet, which has nothing of its own to leave out.
         /// </param>
+        /// <param name="instance">
+        /// The transform the object is standing on in the scene, whose own colliders the drop ray
+        /// has to see past. Null for a pose nothing is standing at yet — a drag still in the air —
+        /// which has no colliders of its own to ignore.
+        /// </param>
         CorePose Snapped(
             WorldDoc doc, CatalogEntry entry, string moving, Transform instance, CorePose current)
         {
@@ -631,6 +636,31 @@ namespace ArenaForge.Editor
                 current.Scale,
                 current.VerticalScale);
         }
+
+        /// <summary>
+        /// Where a piece of art would end up if it were let go at a pose, without letting go of it.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The same arithmetic <see cref="Adopt"/> applies on the way in, asked before the drop
+        /// rather than after it, so <see cref="ArenaDragGuides"/> can draw the answer while somebody
+        /// is still deciding. Sharing it is the point: a preview computed a second way would be a
+        /// second opinion about where a drop lands, and the one on screen would be the one that
+        /// drifted.
+        /// </para>
+        /// <para>
+        /// Nothing is written. There is no instance to move, no document to record against, and no
+        /// undo entry — which is also why <paramref name="at"/> comes in as a pose rather than as a
+        /// transform.
+        /// </para>
+        /// </remarks>
+        /// <param name="doc">The document the neighbours are read from.</param>
+        /// <param name="entry">The catalog row of the art being dragged.</param>
+        /// <param name="at">Where the cursor is holding it, in the realisation root's space.</param>
+        internal CorePose Preview(WorldDoc doc, CatalogEntry entry, CorePose at) =>
+            _map == null || _map.Realizer == null || _map.Realizer.Catalog == null
+                ? at
+                : Snapped(doc, entry, null, null, at);
 
         /// <summary>
         /// The height a dropped object comes to rest at: the first standing surface under it, plus
@@ -693,7 +723,7 @@ namespace ArenaForge.Editor
             {
                 RaycastHit hit = hits[i];
 
-                if (hit.transform.IsChildOf(instance) ||
+                if ((instance != null && hit.transform.IsChildOf(instance)) ||
                     !IsStandingSurface(asset, hit.collider))
                 {
                     continue;

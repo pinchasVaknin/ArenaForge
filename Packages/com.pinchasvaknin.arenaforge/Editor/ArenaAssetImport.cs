@@ -11,47 +11,78 @@ namespace ArenaForge.Editor
     public readonly struct ImportedAsset
     {
         /// <summary>Creates a result.</summary>
-        public ImportedAsset(GameObject variant, float measured, float corrected, bool collider)
+        public ImportedAsset(
+            GameObject prefab,
+            float measured,
+            float corrected,
+            bool collider,
+            float recentred = 0f,
+            bool replaced = false)
         {
-            Variant = variant;
+            Prefab = prefab;
             Measured = measured;
             Corrected = corrected;
             ColliderAdded = collider;
+            Recentred = recentred;
+            Replaced = replaced;
         }
 
-        /// <summary>The variant that was written.</summary>
-        public GameObject Variant { get; }
+        /// <summary>The prefab that was written.</summary>
+        public GameObject Prefab { get; }
 
         /// <summary>How long the source art measured along its longest horizontal axis, in metres.</summary>
         public float Measured { get; }
 
-        /// <summary>What that axis measures on the variant. Equal to <see cref="Measured"/> when nothing was corrected.</summary>
+        /// <summary>What that axis measures once imported. Equal to <see cref="Measured"/> when nothing was corrected.</summary>
         public float Corrected { get; }
 
-        /// <summary>Whether the variant gained a box collider the source did not have.</summary>
+        /// <summary>Whether the art gained a box collider the source did not have.</summary>
         public bool ColliderAdded { get; }
+
+        /// <summary>How far the art was moved on the ground plane to sit over the root, in metres.</summary>
+        /// <remarks>
+        /// Zero for art already modelled over its own pivot, which is most of it. What it measures
+        /// when it is not zero is the radius the piece used to swing through when somebody turned
+        /// it — see <see cref="ArenaAssetImport.Centre"/>.
+        /// </remarks>
+        public float Recentred { get; }
+
+        /// <summary>Whether this was written over a prefab that was already there.</summary>
+        public bool Replaced { get; }
 
         /// <summary>Whether the size was changed.</summary>
         public bool Rescaled => Corrected != Measured;
 
+        /// <summary>Whether the art was moved over the root.</summary>
+        public bool Centred => Recentred > 0f;
+
         /// <inheritdoc />
         public override string ToString() => Rescaled
-            ? $"{Variant.name}: {Measured.ToString("0.###", CultureInfo.InvariantCulture)} m -> " +
+            ? $"{Prefab.name}: {Measured.ToString("0.###", CultureInfo.InvariantCulture)} m -> " +
               $"{Corrected.ToString("0.###", CultureInfo.InvariantCulture)} m"
-            : $"{Variant.name}: {Measured.ToString("0.###", CultureInfo.InvariantCulture)} m";
+            : $"{Prefab.name}: {Measured.ToString("0.###", CultureInfo.InvariantCulture)} m";
     }
 
     /// <summary>
-    /// Turns art somebody else modelled into art this tool can place: a prefab variant of it, with a
-    /// box collider fitted where there was none, and its size corrected to the module it was plainly
-    /// meant to be.
+    /// Turns art somebody else modelled into art this tool can place: an empty root with the source
+    /// nested under it, a box collider fitted where there was none, and its size corrected to the
+    /// module it was plainly meant to be.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <strong>A variant rather than a copy.</strong> The source prefab is left exactly as it was and
-    /// the workspace holds a variant of it, so an art pack can be updated in place and the overrides
-    /// this adds follow. Copying the prefab would double every mesh reference in the project and make
-    /// the two versions a synchronisation problem for as long as both exist.
+    /// <strong>A wrapper rather than a copy.</strong> The source prefab is left exactly as it was
+    /// and the workspace holds a prefab that nests it, so an art pack can be updated in place and the
+    /// change follows through. Copying the prefab would double every mesh reference in the project
+    /// and make the two versions a synchronisation problem for as long as both exist.
+    /// </para>
+    /// <para>
+    /// <strong>An empty root, and that is the point of the wrapper.</strong> This wrote a prefab
+    /// variant until somebody tried to turn one. A variant's root <em>is</em> the source's root, so
+    /// art modelled straight onto a prefab root came out of here flat — mesh and collider on the
+    /// imported root, nothing underneath — and <see cref="MeshRotation"/> has to refuse that, because
+    /// the only thing it could turn is the root the generator poses through. A root with nothing on
+    /// it is at rotation zero and scale one because there is nothing to put it anywhere else, and it
+    /// always has exactly one child to turn. See <see cref="ArtName"/>.
     /// </para>
     /// <para>
     /// <strong>Nothing here authors geometry.</strong> That is <see cref="ArenaAssetBuilder"/>'s job
@@ -67,11 +98,11 @@ namespace ArenaForge.Editor
     /// only near a piece's own length by coincidence.
     /// </para>
     /// <para>
-    /// <strong>The correction goes on the prefab's children.</strong> Art modelled straight onto
-    /// its root has nowhere to carry one and is reported unchanged. The root itself could carry it
-    /// now that <c>CatalogSync</c> counts a root's own scale and <c>WorldRealizer</c> composes it,
-    /// which it did not when this was written; putting it there is a change to make on purpose
-    /// rather than a line to quietly delete, and it is in <c>FUTURE.md</c>.
+    /// <strong>The correction goes on the <c>Art</c> child.</strong> One scale on one transform,
+    /// where it used to be a scale and a shifted position on each of the source's own children — and
+    /// it works whatever shape the source is, including art modelled straight onto its root, which
+    /// used to be reported unchanged for want of anywhere to put a scale. The imported prefab's own
+    /// root stays at one, which is what the catalog measures through and what the realiser poses.
     /// </para>
     /// <para>
     /// <strong>The tolerance is small by default and the user's to raise.</strong> Nothing in the
@@ -79,6 +110,14 @@ namespace ArenaForge.Editor
     /// 2.30, and rounding the second is a 30 cm distortion that makes runs worse rather than better.
     /// Five centimetres is larger than modelling slop and smaller than any deliberate size, so the
     /// default corrects the first kind and declines the second. Everything declined is reported.
+    /// </para>
+    /// <para>
+    /// <strong>The art is centred over the root, and that is what makes a turn a turn.</strong> A
+    /// pose is a position and a yaw about the root, so art modelled off its own pivot does not spin
+    /// where it stands when it is turned — it swings round the pivot at whatever radius the modeller
+    /// left. That is not a hypothetical: the stone boundary panel in this project's own workspace
+    /// measured its art sixteen metres off its pivot, so a quarter turn of it moved the wall the
+    /// best part of a lane. See <see cref="Centre"/>, which also says why it is X and Z only.
     /// </para>
     /// </remarks>
     public static class ArenaAssetImport
@@ -99,19 +138,31 @@ namespace ArenaForge.Editor
         /// </remarks>
         public const float DefaultTolerance = 0.05f;
 
+        /// <summary>What the nested source is called inside an imported prefab.</summary>
+        /// <remarks>
+        /// One name for every import, so a person opening two of them finds the same thing in the
+        /// same place, and so a tool that walks the children has something to say in a message.
+        /// </remarks>
+        public const string ArtName = "Art";
+
         /// <summary>
-        /// Writes a variant of each source prefab into <paramref name="folder"/>, fitting a collider
-        /// and correcting the size where it is within tolerance of a module.
+        /// Writes a wrapped copy of each source prefab into <paramref name="folder"/>, fitting a
+        /// collider and correcting the size where it is within tolerance of a module.
         /// </summary>
         /// <param name="sources">Prefabs to import. Nulls are skipped.</param>
         /// <param name="folder">Project folder the variants are written to. Created if missing.</param>
         /// <param name="module">Size the longest horizontal axis is snapped to a multiple of.</param>
         /// <param name="tolerance">How far that axis may be moved, in metres. Zero corrects nothing.</param>
+        /// <param name="overwrite">
+        /// Whether a prefab already standing at the name being written is replaced rather than
+        /// written beside. See <see cref="TargetPath"/>.
+        /// </param>
         public static List<ImportedAsset> Import(
             IReadOnlyList<GameObject> sources,
             string folder,
             float module = DefaultModule,
-            float tolerance = DefaultTolerance)
+            float tolerance = DefaultTolerance,
+            bool overwrite = false)
         {
             var imported = new List<ImportedAsset>();
             if (sources == null || string.IsNullOrEmpty(folder))
@@ -129,7 +180,7 @@ namespace ArenaForge.Editor
                     continue;
                 }
 
-                ImportedAsset? one = ImportOne(source, folder, module, tolerance);
+                ImportedAsset? one = ImportOne(source, folder, module, tolerance, overwrite);
                 if (one.HasValue)
                 {
                     imported.Add(one.Value);
@@ -141,7 +192,7 @@ namespace ArenaForge.Editor
         }
 
         static ImportedAsset? ImportOne(
-            GameObject source, string folder, float module, float tolerance)
+            GameObject source, string folder, float module, float tolerance, bool overwrite)
         {
             // The art as modelled, not as somebody's collider describes it. A collider is a size a
             // person chose and may already be the rounded one; the mesh is what a run will be
@@ -154,102 +205,143 @@ namespace ArenaForge.Editor
             float measured = Mathf.Max(art.size.x, art.size.z);
             bool wanted = TryCorrection(measured, module, tolerance, out float scale, out float target);
 
-            var instance = (GameObject)PrefabUtility.InstantiatePrefab(source);
-            if (instance == null)
+            var model = (GameObject)PrefabUtility.InstantiatePrefab(source);
+            if (model == null)
             {
                 return null;
             }
 
+            var root = new GameObject(source.name);
+
             try
             {
-                bool rescaled = wanted && TryRescale(instance.transform, scale);
+                model.name = ArtName;
+                model.transform.SetParent(root.transform, false);
 
-                // Fitted after the correction and measured off the instance, so the collider is the
-                // box round the art as it now stands. Fitting it first and scaling afterwards would
-                // leave a collider on the root that the child scaling never touched.
+                // Held at one while the collider is fitted, so what is measured is the art in its
+                // own space — which is the space a box on that same transform is written in.
+                // CatalogSync answers in the space the art stands in, its own scale included, so
+                // measuring at the final size and then hanging the box on the transform carrying
+                // that size would count the scale twice. The scale goes on afterwards and takes the
+                // collider with it, which is also what keeps the two together under a rotation.
+                Vector3 own = model.transform.localScale;
+                model.transform.localScale = Vector3.one;
+
                 bool addedCollider = false;
                 if (CatalogSync.HasNoBoxCollider(source) &&
-                    CatalogSync.TryMeasureArt(instance, out Bounds fitted))
+                    CatalogSync.TryMeasureArt(model, out Bounds fitted))
                 {
-                    var box = instance.AddComponent<BoxCollider>();
+                    var box = model.AddComponent<BoxCollider>();
                     box.center = fitted.center;
                     box.size = fitted.size;
                     addedCollider = true;
                 }
 
-                string path = AssetDatabase.GenerateUniqueAssetPath($"{folder}/{source.name}.prefab");
-                GameObject variant = PrefabUtility.SaveAsPrefabAsset(instance, path);
+                bool rescaled = wanted && scale > 0f;
+                model.transform.localScale = rescaled ? own * scale : own;
 
-                return variant == null
+                // Last, and after the scale, because what has to end up over the root is the art at
+                // the size it will be standing at rather than the size it arrived as.
+                float recentred = Centre(root, model.transform);
+
+                string path = TargetPath(source, folder, overwrite, out bool replaced);
+                GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, path);
+
+                return prefab == null
                     ? (ImportedAsset?)null
                     : new ImportedAsset(
-                        variant, measured, rescaled ? target : measured, addedCollider);
+                        prefab, measured, rescaled ? target : measured, addedCollider,
+                        recentred, replaced);
             }
             finally
             {
-                Object.DestroyImmediate(instance);
+                Object.DestroyImmediate(root);
             }
         }
 
         /// <summary>
-        /// Applies a uniform scale to a prefab's contents, and reports whether there was anywhere to
-        /// put it.
+        /// Slides the art sideways under its root until its measured centre is over the root's
+        /// origin, and returns how far it had to go.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <strong>On the children, never on the root.</strong> The reason it was written that way
-        /// has since gone: a scale on the root cancelled out of the measurement <c>CatalogSync</c>
-        /// took, so a correction put there would have left the row saying one size and the map
-        /// standing at another. The measurement counts it now, and <c>WorldRealizer</c> composes it
-        /// rather than overwriting it — see
-        /// <c>ArenaAssetImportTests.TheMeasurementCountsTheRootsOwnScale</c>. What keeps the
-        /// correction on the children today is only that nothing has moved it.
+        /// <strong>What this is for is the rotation, not the tidiness.</strong> A pose puts a pivot
+        /// somewhere and turns the root about it; art modelled off that pivot therefore travels an
+        /// arc of its own offset every time somebody turns it, which reads as a piece flying off
+        /// across the map rather than turning. Nothing downstream can fix that — the generator, the
+        /// realiser and the rotate handle are all correct about a pivot the modeller put in the
+        /// wrong place — so it is fixed here, once, where the art comes in.
         /// </para>
         /// <para>
-        /// Positions as well as scales, because a uniform scale about the root's origin moves what is
-        /// offset from it. Scaling the pieces without moving them apart would resize each one and
-        /// leave the gaps between them, which is a different shape rather than a bigger one.
+        /// <strong>X and Z, and deliberately not Y.</strong> How far a piece reaches below its own
+        /// pivot is not slop to be corrected: it is the one fact
+        /// <see cref="ArenaForge.Core.CatalogEntry.BaseOffset"/> records and every placement stage
+        /// adds back, and <see cref="ArenaForge.Core.PerimeterFence"/> plants a boundary panel on
+        /// its pivot exactly so that the deep foundation modelled under it goes under the ground.
+        /// Centring the height would bury half of every wall and leave the catalog describing art
+        /// that no longer matches the convention the rest of the tool places by. The yaw is about Y,
+        /// so the ground plane is the whole of what the orbit is made of anyway.
         /// </para>
         /// <para>
-        /// <strong>Art modelled straight onto the root is refused.</strong> There is no child to
-        /// carry the correction, so the size is reported as it was measured and left alone. Saying
-        /// so is the point: a size silently declined is worse than one visibly declined.
+        /// Measured off the finished root rather than off the source, so it accounts for the
+        /// source's own root offset, the correction scale and anything the source has turned inside
+        /// itself — one measurement of the thing that is about to be written.
         /// </para>
         /// </remarks>
-        static bool TryRescale(Transform root, float scale)
+        static float Centre(GameObject root, Transform art)
         {
-            if (root.childCount == 0)
+            if (!CatalogSync.TryMeasureArt(root, out Bounds whole))
             {
-                return false;
+                return 0f;
             }
 
-            for (int i = 0; i < root.childCount; i++)
+            var offset = new Vector3(whole.center.x, 0f, whole.center.z);
+            if (offset == Vector3.zero)
             {
-                Transform child = root.GetChild(i);
-                child.localPosition *= scale;
-                child.localScale *= scale;
+                return 0f;
             }
 
-            return true;
+            art.localPosition -= offset;
+            return offset.magnitude;
         }
 
         /// <summary>
-        /// The uniform scale that snaps a measured size onto the nearest multiple of a module, and
-        /// whether it is worth applying.
+        /// Where an import writes, and whether it is replacing a prefab that was already there.
         /// </summary>
         /// <remarks>
         /// <para>
-        /// False rather than a scale of one when there is nothing to do, so a caller can report the
-        /// art it declined to touch. The three ways to get there are worth telling apart in a log:
-        /// the size is already a multiple, the nearest multiple is further away than the tolerance,
-        /// or the art is smaller than half a module and the nearest multiple is nothing at all.
+        /// <strong>Overwriting is what makes a re-import a re-import.</strong> Writing beside is the
+        /// safe default and the wrong one for the thing people actually do with this: fix the art,
+        /// import it again, and find <c>Barrel 1</c> beside <c>Barrel</c> with every catalog row,
+        /// every saved map and every scene still pointing at the old one. Saving over the path keeps
+        /// the asset's own GUID, so the row and the map follow the fix instead of being orphaned by
+        /// it.
         /// </para>
         /// <para>
-        /// The last is not an edge case. A door handle measured at 0.1 m has a nearest metre of zero,
-        /// and a scale of zero is not a correction — it is art that disappears. Anything under half a
-        /// module is left alone, which is the same answer as "this was not modelled to your grid".
+        /// <strong>Never over the art being imported.</strong> A source filed in the folder it is
+        /// being imported into is somebody importing in place, and replacing it there would write a
+        /// wrapper round a model over the model the wrapper nests — art that refers to itself. That
+        /// one falls back to a fresh name whatever the toggle says.
         /// </para>
         /// </remarks>
+        static string TargetPath(
+            GameObject source, string folder, bool overwrite, out bool replaced)
+        {
+            replaced = false;
+            string path = $"{folder}/{source.name}.prefab";
+
+            if (!overwrite ||
+                AssetDatabase.LoadAssetAtPath<GameObject>(path) == null ||
+                string.Equals(
+                    AssetDatabase.GetAssetPath(source), path, System.StringComparison.Ordinal))
+            {
+                return AssetDatabase.GenerateUniqueAssetPath(path);
+            }
+
+            replaced = true;
+            return path;
+        }
+
         internal static bool TryCorrection(
             float measured, float module, float tolerance, out float scale, out float target)
         {
@@ -333,6 +425,7 @@ namespace ArenaForge.Editor
         string _folder = DefaultFolder;
         float _module = ArenaAssetImport.DefaultModule;
         float _tolerance = ArenaAssetImport.DefaultTolerance;
+        bool _overwrite;
         string _result;
 
         /// <summary>Opens the window, or brings the open one to the front.</summary>
@@ -340,7 +433,7 @@ namespace ArenaForge.Editor
         public static void Open()
         {
             var window = GetWindow<ArenaAssetImportWindow>(true, "Import Art", true);
-            window.minSize = new Vector2(420f, 210f);
+            window.minSize = new Vector2(420f, 250f);
             window.Show();
         }
 
@@ -369,13 +462,30 @@ namespace ArenaForge.Editor
 
             _module = EditorGUILayout.FloatField("Module", _module);
             _tolerance = EditorGUILayout.FloatField("Tolerance", _tolerance);
+            _overwrite = EditorGUILayout.Toggle(
+                new GUIContent(
+                    "Overwrite existing",
+                    "Write over a prefab of the same name in this folder instead of writing a " +
+                    "second one beside it. The asset keeps its GUID, so catalog rows, saved maps " +
+                    "and scenes follow the re-import."),
+                _overwrite);
 
             EditorGUILayout.HelpBox(
                 $"A piece whose longest horizontal axis is within {_tolerance:0.###} m of a " +
                 $"multiple of {_module:0.###} m is scaled onto it. Zero tolerance corrects nothing." +
+                "  The art is centred over the root on X and Z, so turning it spins it in place." +
                 "  The folder decides where the generator may place this art, so pick the " +
                 "prop folder that says so rather than the root.",
                 MessageType.None);
+
+            if (_overwrite)
+            {
+                EditorGUILayout.HelpBox(
+                    "Re-importing replaces the prefab of the same name in this folder. Its rows " +
+                    "will want re-syncing afterwards, because centring and any size correction " +
+                    "move what the catalog measured.",
+                    MessageType.Warning);
+            }
 
             using (new EditorGUI.DisabledScope(
                        sources.Count == 0 || string.IsNullOrEmpty(_folder)))
@@ -412,10 +522,12 @@ namespace ArenaForge.Editor
         void Run(List<GameObject> sources)
         {
             List<ImportedAsset> imported =
-                ArenaAssetImport.Import(sources, _folder, _module, _tolerance);
+                ArenaAssetImport.Import(sources, _folder, _module, _tolerance, _overwrite);
 
             var corrected = 0;
             var collidered = 0;
+            var centred = 0;
+            var replaced = 0;
 
             for (int i = 0; i < imported.Count; i++)
             {
@@ -428,6 +540,16 @@ namespace ArenaForge.Editor
                 {
                     collidered++;
                 }
+
+                if (imported[i].Centred)
+                {
+                    centred++;
+                }
+
+                if (imported[i].Replaced)
+                {
+                    replaced++;
+                }
             }
 
             // What was declined is as much of the answer as what was done: a piece too far off a
@@ -437,7 +559,8 @@ namespace ArenaForge.Editor
                 ? $"Nothing was imported into {_folder}."
                 : $"{imported.Count} of {sources.Count} imported into {_folder}. " +
                   $"{corrected} corrected to size, {imported.Count - corrected} left as measured, " +
-                  $"{collidered} given a collider.";
+                  $"{collidered} given a collider, {centred} centred over their root" +
+                  (replaced > 0 ? $", {replaced} written over the prefab already there." : ".");
 
             if (imported.Count > 0)
             {
@@ -450,7 +573,7 @@ namespace ArenaForge.Editor
             var objects = new Object[imported.Count];
             for (int i = 0; i < imported.Count; i++)
             {
-                objects[i] = imported[i].Variant;
+                objects[i] = imported[i].Prefab;
             }
 
             return objects;

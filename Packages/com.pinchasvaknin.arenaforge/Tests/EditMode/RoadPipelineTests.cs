@@ -200,6 +200,198 @@ namespace ArenaForge.Tests
             }
         }
 
+        // --- and a fence is not something a road is laid through ------------------------------------
+
+        /// <summary>How many seeds the fence properties are measured over.</summary>
+        /// <remarks>
+        /// Sixty, because the failure was not rare and did not need finding: measured against the
+        /// generator as it stood, fifty-nine of these sixty had a carriageway centreline running
+        /// through the middle of a fence panel. What the count has to be large enough for is the
+        /// opposite claim — that none of them does — and sixty maps carry some two thousand panels
+        /// between them.
+        /// </remarks>
+        const int FenceSeeds = 60;
+
+        /// <summary>
+        /// Every fence panel on a map, as the world rectangle it stands on.
+        /// </summary>
+        /// <remarks>
+        /// Read out of the catalog by tag rather than out of the metadata the fencing stages write,
+        /// deliberately: the metadata is the mechanism under test, and a test that measured through
+        /// it would pass just as happily if every stage had stopped writing it and the router had
+        /// stopped shutting anything.
+        /// </remarks>
+        static List<Rect2> Fences(WorldDoc doc, Catalog catalog)
+        {
+            var fences = new List<Rect2>();
+
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                PlacedObject placed = doc.GeneratedObjects[i];
+                if (!HasFenceTag(placed))
+                {
+                    continue;
+                }
+
+                CatalogEntry entry = catalog.Find(placed.LogicalId);
+                if (entry != null)
+                {
+                    fences.Add(placed.Pose.Bounds(entry.Footprint));
+                }
+            }
+
+            return fences;
+        }
+
+        static bool HasFenceTag(PlacedObject placed)
+        {
+            for (int i = 0; i < placed.Tags.Count; i++)
+            {
+                if (placed.Tags[i] == PerimeterFence.StoneFenceTag ||
+                    placed.Tags[i] == ExteriorPlacer.FenceTag)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Where a network's centrelines go, sampled a quarter of a metre apart.
+        /// </summary>
+        /// <remarks>
+        /// The centreline rather than the reservation, because the reservation is a box round a
+        /// stretch of road and is deliberately larger than the road — see
+        /// <see cref="RoadNetwork.Corridors"/> — so a panel merely near a bend would count as one
+        /// the road ran through. A quarter of a metre is finer than the thinnest fence art in the
+        /// suite, so nothing can pass between two samples.
+        /// </remarks>
+        static IEnumerable<Vec2> Centrelines(RoadNetwork network)
+        {
+            for (int s = 0; s < network.Segments.Count; s++)
+            {
+                IReadOnlyList<Vec2> points = network.Segments[s].Points;
+
+                for (int i = 1; i < points.Count; i++)
+                {
+                    Vec2 from = points[i - 1];
+                    Vec2 to = points[i];
+                    var steps = (int)MathF.Max(1f, Vec2.Distance(from, to) / 0.25f);
+
+                    for (int step = 0; step <= steps; step++)
+                    {
+                        float along = step / (float)steps;
+                        yield return new Vec2(
+                            from.X + ((to.X - from.X) * along),
+                            from.Y + ((to.Y - from.Y) * along));
+                    }
+                }
+            }
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The property the whole fence-as-obstacle change exists for. A road was routed over ground
+        /// and pads alone, so a fence — the one piece of dressing a player cannot walk through — was
+        /// invisible to it, and a path was drawn straight over the wall round a yard or the ring
+        /// round a spawn on nearly every seed.
+        /// </para>
+        /// <para>
+        /// Asserted on the centreline being <em>inside</em> a panel rather than on any clearance
+        /// from one, because that is the failure as somebody sees it in the scene and it needs no
+        /// number chosen to say so. A road that runs along a fence is a street; a road that runs
+        /// through one is a hole.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void NoRoadIsLaidThroughAFence()
+        {
+            Catalog catalog = TestWorlds.ExteriorCatalog();
+            var through = new List<string>();
+            var panels = 0;
+
+            for (ulong seed = 1; seed <= FenceSeeds; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed, RoadDensity = 1f };
+                WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+
+                List<Rect2> fences = Fences(doc, catalog);
+                panels += fences.Count;
+
+                RoadNetwork network = RoadNetwork.Build(
+                    parameters,
+                    ArenaLayout.Build(parameters),
+                    ArenaLayoutGenerator.TerrainBeforeRoads(doc),
+                    doc.GeneratedObjects);
+
+                foreach (Vec2 at in Centrelines(network))
+                {
+                    for (int f = 0; f < fences.Count; f++)
+                    {
+                        if (fences[f].Contains(at))
+                        {
+                            through.Add($"seed {seed}: a carriageway runs through {fences[f]}");
+                            f = fences.Count;
+                        }
+                    }
+                }
+            }
+
+            Assert.That(panels, Is.GreaterThan(FenceSeeds * 10),
+                "the fixture fenced almost nothing, so the property is not being tested");
+
+            Assert.That(through, Is.Empty, "a road was laid through a fence");
+        }
+
+        /// <remarks>
+        /// The other half of the bargain, and the half a blunter fix would fail. Shutting the ground
+        /// under a fence can only ever take routes away, so a change that shut too much would answer
+        /// the property above by laying almost nothing at all — a map with no roads on it crosses no
+        /// fences. Measured against the same seeds generated without the fencing art in the catalog,
+        /// which is as close to the same map without fences as there is.
+        /// </remarks>
+        [Test]
+        public void FencingAMapStillLeavesItARoadNetwork()
+        {
+            Catalog fenced = TestWorlds.ExteriorCatalog();
+            Catalog bare = TestWorlds.SampleCatalog();
+            var thin = new List<string>();
+
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed, RoadDensity = 1f };
+
+                float withFences = Laid(parameters, fenced);
+                float without = Laid(parameters, bare);
+
+                Assert.That(withFences, Is.GreaterThan(0f), $"seed {seed}: no road was laid at all");
+
+                // Two thirds, which is a long way below what the sweep actually comes out at and
+                // far enough above nothing to fail a change that routed round a fence by giving up
+                // on the route.
+                if (withFences < without * (2f / 3f))
+                {
+                    thin.Add(
+                        $"seed {seed}: {withFences:0.0} m of road with fences against " +
+                        $"{without:0.0} m without them");
+                }
+            }
+
+            Assert.That(thin, Is.Empty, "fencing the map cost it most of its road network");
+        }
+
+        static float Laid(ArenaParams parameters, Catalog catalog)
+        {
+            WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+
+            return RoadNetwork.Build(
+                parameters,
+                ArenaLayout.Build(parameters),
+                ArenaLayoutGenerator.TerrainBeforeRoads(doc),
+                doc.GeneratedObjects).CorridorLength;
+        }
+
         /// <summary>
         /// Reduces a document to one number over everything a regeneration has to reproduce: every
         /// object in order, its two ids, its pose, its tags and its metadata, and then the world's

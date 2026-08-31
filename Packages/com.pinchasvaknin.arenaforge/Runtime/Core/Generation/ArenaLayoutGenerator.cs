@@ -116,6 +116,34 @@ namespace ArenaForge.Core
         /// <summary>Metadata key holding the height that rectangle was levelled to.</summary>
         public const string FoundationHeightKey = "foundation_height";
 
+        /// <summary>
+        /// Metadata key holding the world footprint of a piece of art a road may not cross.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Written by the three stages that fence something — <see cref="PerimeterFence"/>,
+        /// <see cref="SpawnEnclosure"/> and the yard run in <see cref="ExteriorPlacer"/> — and read
+        /// by <see cref="RoadNetwork"/>, which shuts the ground each rectangle covers. A fence is
+        /// the one kind of dressing a road may not simply be laid through: a crate in a carriageway
+        /// is a crate to walk round and a path over a fence is a path through a solid object.
+        /// </para>
+        /// <para>
+        /// <strong>A rectangle in the document rather than a lookup in the catalog.</strong> The
+        /// router is handed a document and no catalog, and deliberately: <see cref="Terrain(WorldDoc)"/>
+        /// replays the ground a saved map was generated on, and a network that needed the catalog to
+        /// route would move under a map every time somebody reimported their art pack. So a barrier
+        /// records its own footprint at the moment it is committed, exactly as a structure records
+        /// its pad — see <see cref="FoundationKey"/> — and the replay reads what was written rather
+        /// than measuring it again.
+        /// </para>
+        /// <para>
+        /// Only fences carry it. A hedge, a bench and a stack of barrels are things a road is laid
+        /// past rather than round, which is the reading <see cref="WalkableGrid"/> takes of
+        /// the same objects.
+        /// </para>
+        /// </remarks>
+        public const string BarrierKey = "barrier";
+
         /// <summary>Tag a catalog entry must carry to be used as a spawn marker.</summary>
         public const string SpawnMarkerTag = "spawn";
 

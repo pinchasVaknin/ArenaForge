@@ -157,6 +157,41 @@ namespace ArenaForge.Tests
                 "cover/low/broken", new[] { "cover" }, new Rect2(-0.5f, -0.5f, 0.5f, 0.5f), 1f, 0f, null));
         }
 
+        /// <remarks>
+        /// <para>
+        /// This used to throw, on the reading that art above its own pivot was a mistake in the
+        /// measurement rather than a way somebody modelled something. It is neither rare nor a
+        /// mistake in a bought art pack, and rejecting it did not make the art any better placed:
+        /// the value was clamped at zero on the way in and the piece was stood with its pivot on
+        /// the floor and its art hanging over it.
+        /// </para>
+        /// <para>
+        /// Read as a lift rather than as a distance the sign is not an oddity at all, which is what
+        /// the standing height asserted here says: the piece is a metre tall whichever side of the
+        /// art its pivot ended up on.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void AnEntryWhoseArtStandsAboveItsPivotIsAccepted()
+        {
+            var entry = new CatalogEntry(
+                "propbuilding/decor/corners/potted_01",
+                new[] { "propbuilding/decor/corners" },
+                new Rect2(-0.5f, -0.5f, 0.5f, 0.5f),
+                2f,
+                1f,
+                null,
+                -1f);
+
+            Assert.That(entry.BaseOffset, Is.EqualTo(-1f));
+            Assert.That(entry.StandingHeight, Is.EqualTo(1f).Within(1e-5f));
+
+            Assert.That(
+                Placement.AtQuarterTurn(entry, Vec2.Zero, 0).Pose.Position.Y,
+                Is.EqualTo(-1f).Within(1e-5f),
+                "the pivot goes below the surface so that the art lands on it");
+        }
+
         [Test]
         public void AnEntryWithABlankIdIsRejected()
         {

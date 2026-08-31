@@ -663,6 +663,124 @@ namespace ArenaForge.Tests
             return null;
         }
 
+        // --- what a drag shows before it is a drop ---------------------------------------------
+
+        /// <remarks>
+        /// <para>
+        /// The property the live drag guides rest on, and the only one worth having: what is drawn
+        /// under the cursor is the pose the drop will actually record. A preview that showed the raw
+        /// mouse position would be worse than none — it would promise a placement the snap is about
+        /// to move, whether the snap comes from an edge in reach or from the grid.
+        /// </para>
+        /// <para>
+        /// Asserted by dropping the same art at the same point and comparing, rather than against
+        /// the grid: which of the two snaps applies depends on what the seed happened to place
+        /// nearby, and the claim is not about the grid. It is that the two answers are one answer.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void ADragPreviewShowsThePoseTheDropWillRecord()
+        {
+            GenerateAndWatch();
+
+            CatalogAsset.Row crate = Crate();
+            var held = new CoreVec3(3.3f, 0f, 4.7f);
+
+            PlacedObject preview = ArenaDragGuides.Pending(_map, crate.LogicalId, held);
+
+            Assert.That(preview, Is.Not.Null);
+            Assert.That(preview.LogicalId, Is.EqualTo(crate.LogicalId));
+
+            var dropped = (GameObject)PrefabUtility.InstantiatePrefab(crate.Prefab);
+            dropped.transform.position =
+                _map.Realizer.Root.TransformPoint(CoreConvert.ToUnity(held));
+
+            _capture.Adopt(dropped);
+
+            CorePose? recorded = null;
+            foreach (EditOverride edit in _map.Document.Overrides)
+            {
+                if (edit.Op == OverrideOp.Add)
+                {
+                    recorded = edit.Pose;
+                }
+            }
+
+            Assert.That(recorded.HasValue, Is.True, "the drop recorded no Add to compare against");
+
+            Assert.That(recorded.Value.Position.X,
+                Is.EqualTo(preview.Pose.Position.X).Within(1e-4f),
+                "the preview promised a place the drop did not use");
+            Assert.That(recorded.Value.Position.Y,
+                Is.EqualTo(preview.Pose.Position.Y).Within(1e-4f));
+            Assert.That(recorded.Value.Position.Z,
+                Is.EqualTo(preview.Pose.Position.Z).Within(1e-4f));
+        }
+
+        /// <remarks>
+        /// The id has to be one nothing in a document can be called, or the drag would hide a real
+        /// object from its own verdict: <c>CoverPlacer.TryJudge</c> leaves the subject out of the
+        /// committed set by id, so a preview borrowing a generated id would judge that object
+        /// against a map it had been deleted from.
+        /// </remarks>
+        [Test]
+        public void ADragPreviewIsNamedOutsideEveryGeneratedId()
+        {
+            GenerateAndWatch();
+
+            PlacedObject preview = ArenaDragGuides.Pending(
+                _map, "cover/low/crate_wood_01", new CoreVec3(0f, 0f, 0f));
+
+            Assert.That(preview.StableId, Does.StartWith(ArenaEditCapture.UserIdPrefix));
+
+            foreach (PlacedObject placed in _map.Document.GeneratedObjects)
+            {
+                Assert.That(placed.StableId, Is.Not.EqualTo(preview.StableId));
+            }
+        }
+
+        /// <remarks>
+        /// Art the catalog has never heard of draws nothing rather than drawing a verdict about a
+        /// footprint it had to guess. Dragging a prefab from anywhere in the Project window is an
+        /// ordinary thing to do, and most of what is there is not this map's art.
+        /// </remarks>
+        [Test]
+        public void ADragOfArtOutsideTheCatalogPreviewsNothing()
+        {
+            GenerateAndWatch();
+
+            Assert.That(
+                ArenaDragGuides.Pending(_map, "cover/low/nothing_like_this", CoreVec3.Zero),
+                Is.Null);
+
+            Assert.That(ArenaDragGuides.Pending(_map, null, CoreVec3.Zero), Is.Null);
+        }
+
+        /// <remarks>
+        /// The two ways this drag starts, which are the same gesture to the person making it: the
+        /// tool window's catalog panel carries a logical id outright, and the Project window carries
+        /// the prefab, which the catalog asset binds to a row. Anything else is a drag that has
+        /// nothing to do with a map.
+        /// </remarks>
+        [Test]
+        public void ADraggedPrefabIsResolvedToItsCatalogRow()
+        {
+            GameObject prefab = _catalog.Rows[3].Prefab;
+
+            Assert.That(
+                ArenaDragGuides.LogicalIdOf(_map, new Object[] { prefab }, null),
+                Is.EqualTo("cover/low/crate_wood_01"));
+
+            Assert.That(
+                ArenaDragGuides.LogicalIdOf(_map, null, "cover/high/barrier_concrete_01"),
+                Is.EqualTo("cover/high/barrier_concrete_01"),
+                "the window's own drag carries the id rather than the prefab");
+
+            Assert.That(
+                ArenaDragGuides.LogicalIdOf(_map, new Object[] { _catalog }, null), Is.Null,
+                "a drag of something that is not this map's art previews nothing");
+        }
+
         // --- the core loop ------------------------------------------------------------------
 
         [Test]

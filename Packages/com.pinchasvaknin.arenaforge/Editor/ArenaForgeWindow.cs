@@ -44,7 +44,14 @@ namespace ArenaForge.Editor
             "Packages/com.pinchasvaknin.arenaforge/Editor/UI/ArenaForgeWindow.uss";
 
         /// <summary>Drag-and-drop payload key the catalog rows and the scene view agree on.</summary>
-        const string DragKey = "ArenaForge.LogicalId";
+        /// <summary>
+        /// Generic-data key the catalog panel's drag carries its logical id under.
+        /// </summary>
+        /// <remarks>
+        /// Internal because <see cref="ArenaDragGuides"/> has to recognise this window's own drag
+        /// to preview it, and a second copy of the string is a second thing to keep in step.
+        /// </remarks>
+        internal const string DragKey = "ArenaForge.LogicalId";
 
         /// <summary>How often the scene is diffed against the document, in seconds.</summary>
         const double TickInterval = 0.1;

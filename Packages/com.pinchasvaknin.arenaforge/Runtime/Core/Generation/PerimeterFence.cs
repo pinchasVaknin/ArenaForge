@@ -344,6 +344,14 @@ namespace ArenaForge.Core
             Pose pose = candidate.Pose.WithPosition(
                 new Vec3(candidate.Pose.Position.X, elevation, candidate.Pose.Position.Z));
 
+            // The ground it stands on, recorded so the road stage can keep off it. A fence is the
+            // one piece of dressing a route may not simply be laid through — see
+            // ArenaLayoutGenerator.BarrierKey.
+            var metadata = new Dictionary<string, string>
+            {
+                { ArenaLayoutGenerator.BarrierKey, RectMetadata.Format(candidate.Footprint) },
+            };
+
             doc.GeneratedObjects.Add(new PlacedObject(
                 // Three digits rather than the two a lane's objects use: a sixty-metre boundary is a
                 // hundred-odd segments, and an id that ran from fence_98 to fence_100 would sort
@@ -352,7 +360,7 @@ namespace ArenaForge.Core
                 candidate.LogicalId,
                 pose,
                 TagArray(candidate.Tags),
-                new Dictionary<string, string>()));
+                metadata));
         }
 
         static string[] TagArray(IReadOnlyList<string> tags)

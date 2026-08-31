@@ -209,6 +209,22 @@ namespace ArenaForge.Editor
             }
         }
 
+        /// <summary>
+        /// The one generated map in the loaded scenes, or null where there is not exactly one.
+        /// </summary>
+        /// <remarks>
+        /// The same question this pass asks, asked by <see cref="ArenaDragGuides"/> before a drop
+        /// rather than after it. Shared rather than copied so the two can never disagree about
+        /// which map a dropped object belongs to — a preview drawn against one map and an adoption
+        /// into another would be worse than no preview at all.
+        /// </remarks>
+        internal static ArenaMap SoleMap()
+        {
+            var roots = new List<GameObject>();
+            CurrentRoots(roots);
+            return SoleMap(roots);
+        }
+
         /// <summary>The one generated map among the roots, or null where there is not exactly one.</summary>
         static ArenaMap SoleMap(List<GameObject> roots)
         {

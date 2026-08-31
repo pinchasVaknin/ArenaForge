@@ -720,7 +720,7 @@ namespace ArenaForge.Core
                     (candidate, index) => Commit(
                         doc, site, constraints, candidate,
                         terrain.Planted(candidate.Pose, candidate.Pose.Position.Xz), placed,
-                        site.Placed.StableId + FenceSegment + Text(index)),
+                        site.Placed.StableId + FenceSegment + Text(index), true),
                     ref stream);
             }
         }
@@ -851,6 +851,12 @@ namespace ArenaForge.Core
         /// Accepts a candidate: into the constraint set, into the running list the cover stage is
         /// given, and into the document at the pose the caller seated it at.
         /// </summary>
+        /// <param name="barrier">
+        /// Whether this piece is part of the yard fence, and so ground a road may not be laid
+        /// through. The hedging and the clutter are not: a road past a row of barrels is a road,
+        /// and a road through a fence is a hole in it. See
+        /// <see cref="ArenaLayoutGenerator.BarrierKey"/>.
+        /// </param>
         static void Commit(
             WorldDoc doc,
             MapStructure site,
@@ -858,7 +864,8 @@ namespace ArenaForge.Core
             Placement candidate,
             Pose pose,
             List<Placement> placed,
-            string stableId)
+            string stableId,
+            bool barrier = false)
         {
             constraints.Commit(candidate);
             placed.Add(candidate);
@@ -868,6 +875,12 @@ namespace ArenaForge.Core
             if (lane.Length > 0)
             {
                 metadata[ArenaLayoutGenerator.LaneKey] = lane;
+            }
+
+            if (barrier)
+            {
+                metadata[ArenaLayoutGenerator.BarrierKey] =
+                    RectMetadata.Format(candidate.Footprint);
             }
 
             doc.GeneratedObjects.Add(new PlacedObject(

@@ -90,11 +90,13 @@ namespace ArenaForge.Unity
 
             /// <summary>
             /// How far the art reaches below its pivot in metres — zero for a prefab modelled on
-            /// its base, half its height for one modelled around its centre.
+            /// its base, half its height for one modelled around its centre, and negative for one
+            /// whose art starts above its own pivot.
             /// </summary>
             /// <remarks>
             /// The generator stands a piece by lifting it this far, so art whose pivot is not on
-            /// its base ends up resting on the floor rather than sunk into it. The sync measures it
+            /// its base ends up resting on the floor rather than sunk into it — or hanging over it,
+            /// which is what a negative figure lowers the pivot to prevent. The sync measures it
             /// from the box colliders; a row bound by hand can say it here.
             /// </remarks>
             public float BaseOffset;
@@ -187,7 +189,7 @@ namespace ArenaForge.Unity
                     row.Height,
                     row.Weight,
                     ToSockets(row),
-                    Mathf.Max(0f, row.BaseOffset),
+                    row.BaseOffset,
                     ToDoorways(row));
             }
 
