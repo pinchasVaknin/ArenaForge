@@ -392,6 +392,266 @@ namespace ArenaForge.Tests
                 doc.GeneratedObjects).CorridorLength;
         }
 
+        // --- nor through a fence somebody put there themselves ------------------------------------
+
+        /// <summary>The network a document describes, over the ground its own pads left.</summary>
+        static RoadNetwork Network(
+            ArenaParams parameters, WorldDoc doc, IReadOnlyList<Rect2> standing) =>
+            RoadNetwork.Build(
+                parameters,
+                ArenaLayout.Build(parameters),
+                ArenaLayoutGenerator.TerrainBeforeRoads(doc),
+                doc.GeneratedObjects,
+                standing);
+
+        /// <summary>The middle of the longest carriageway on a map, which is where a fence goes.</summary>
+        /// <remarks>
+        /// The longest rather than the first, so the panel lands on a road the map actually depends
+        /// on rather than on a stub a branch happened to leave. Deterministic on ties by list order,
+        /// as everything else here is.
+        /// </remarks>
+        static Vec2 MiddleOfTheLongestRoad(RoadNetwork network)
+        {
+            var best = -1f;
+            Vec2 middle = Vec2.Zero;
+
+            for (int s = 0; s < network.Segments.Count; s++)
+            {
+                IReadOnlyList<Vec2> points = network.Segments[s].Points;
+                var length = 0f;
+                for (int i = 1; i < points.Count; i++)
+                {
+                    length += Vec2.Distance(points[i - 1], points[i]);
+                }
+
+                if (length > best)
+                {
+                    best = length;
+                    middle = points[points.Count / 2];
+                }
+            }
+
+            return middle;
+        }
+
+        /// <summary>A hand-placed fence panel, as the editor records one.</summary>
+        static EditOverride HandPlaced(string id, CatalogEntry entry, Vec2 at) =>
+            EditOverride.Add(
+                PlacedObject.UserIdPrefix + id,
+                entry.LogicalId,
+                Pose.At(new Vec3(at.X, 0f, at.Y)),
+                new[] { "fence", ExteriorPlacer.FenceTag });
+
+        /// <remarks>
+        /// <para>
+        /// What the user asked the barrier work to reach: a fence somebody stands by hand is a
+        /// fence, and the next network has to go round it. The generated ones say where they are in
+        /// their own metadata; a hand-placed one cannot, because it is an override rather than
+        /// something a stage produced — so it is measured off the document being replaced and handed
+        /// to the generator as an input.
+        /// </para>
+        /// <para>
+        /// The panel is dropped in the middle of the longest carriageway, so the case being measured
+        /// is a road that has to move rather than a fence that was never in the way. The count of
+        /// seeds where it <em>was</em> in the way is asserted for that reason: without it, a change
+        /// that stopped laying roads at all would pass.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void AHandPlacedFenceTurnsTheNextGenerationsRoads()
+        {
+            Catalog catalog = TestWorlds.ExteriorCatalog();
+            CatalogEntry panel = catalog.Find(TestWorlds.FencePanelId);
+            var wasInTheWay = 0;
+            var through = new List<string>();
+
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed, RoadDensity = 1f };
+                WorldDoc first = ArenaLayoutGenerator.Generate(parameters, catalog);
+
+                RoadNetwork before = Network(parameters, first, null);
+                if (before.IsEmpty)
+                {
+                    continue;
+                }
+
+                first.Overrides.Add(
+                    HandPlaced("fence_00", panel, MiddleOfTheLongestRoad(before)));
+
+                List<Rect2> standing = ArenaLayoutGenerator.StandingBarriers(first, catalog);
+                Assert.That(standing.Count, Is.EqualTo(1), $"seed {seed}: the fence was not seen");
+
+                foreach (Vec2 at in Centrelines(before))
+                {
+                    if (standing[0].Contains(at))
+                    {
+                        wasInTheWay++;
+                        break;
+                    }
+                }
+
+                WorldDoc second = ArenaLayoutGenerator.Generate(parameters, catalog, standing);
+                RoadNetwork after = Network(
+                    parameters, second, ArenaLayoutGenerator.RecordedBarriers(second));
+
+                Assert.That(after.IsEmpty, Is.False, $"seed {seed}: one fence emptied the network");
+
+                foreach (Vec2 at in Centrelines(after))
+                {
+                    if (standing[0].Contains(at))
+                    {
+                        through.Add($"seed {seed}: a carriageway still runs through {standing[0]}");
+                        break;
+                    }
+                }
+            }
+
+            Assert.That(wasInTheWay, Is.GreaterThan(15),
+                "the fence was hardly ever in a road's way, so the property is not being tested");
+
+            Assert.That(through, Is.Empty, "a road was laid through a hand-placed fence");
+        }
+
+        /// <remarks>
+        /// <para>
+        /// The property the snapshot exists for, and the one that would break first. A network is
+        /// not stored — it is rebuilt from the document every time the map is realised — so a
+        /// rebuild that could not see the hand-placed obstacles would lay a different network from
+        /// the one the map was built around, and re-grade the ground under every object already
+        /// standing on it.
+        /// </para>
+        /// <para>
+        /// Compared point for point rather than by length, because two networks of the same total
+        /// length can be different networks.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void AMapWithHandPlacedBarriersReplaysTheSameRoads()
+        {
+            Catalog catalog = TestWorlds.ExteriorCatalog();
+            CatalogEntry panel = catalog.Find(TestWorlds.FencePanelId);
+
+            for (ulong seed = 1; seed <= 20; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed, RoadDensity = 1f };
+                WorldDoc first = ArenaLayoutGenerator.Generate(parameters, catalog);
+
+                RoadNetwork before = Network(parameters, first, null);
+                if (before.IsEmpty)
+                {
+                    continue;
+                }
+
+                first.Overrides.Add(
+                    HandPlaced("fence_00", panel, MiddleOfTheLongestRoad(before)));
+
+                List<Rect2> standing = ArenaLayoutGenerator.StandingBarriers(first, catalog);
+                WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog, standing);
+
+                RoadNetwork laid = Network(parameters, doc, standing);
+                ArenaLayoutGenerator.Terrain(doc, out RoadNetwork replayed);
+
+                Assert.That(replayed.Segments.Count, Is.EqualTo(laid.Segments.Count),
+                    $"seed {seed}: the replay laid a different number of roads");
+
+                for (int i = 0; i < laid.Segments.Count; i++)
+                {
+                    IReadOnlyList<Vec2> want = laid.Segments[i].Points;
+                    IReadOnlyList<Vec2> got = replayed.Segments[i].Points;
+
+                    Assert.That(got.Count, Is.EqualTo(want.Count), $"seed {seed} road {i}");
+
+                    for (int at = 0; at < want.Count; at++)
+                    {
+                        Assert.That(got[at].X, Is.EqualTo(want[at].X).Within(1e-6f),
+                            $"seed {seed} road {i} point {at}");
+                        Assert.That(got[at].Y, Is.EqualTo(want[at].Y).Within(1e-6f),
+                            $"seed {seed} road {i} point {at}");
+                    }
+                }
+            }
+        }
+
+        /// <remarks>
+        /// A map nobody has edited records nothing and reads back nothing, which is what keeps every
+        /// recorded digest in this suite where it was: the document of a map with no hand-placed
+        /// obstacle on it is unchanged, key for key.
+        /// </remarks>
+        [Test]
+        public void AMapWithNothingStandingRecordsNothing()
+        {
+            Catalog catalog = TestWorlds.ExteriorCatalog();
+
+            for (ulong seed = 1; seed <= 10; seed++)
+            {
+                var parameters = new ArenaParams { Seed = seed, RoadDensity = 1f };
+
+                WorldDoc unedited = ArenaLayoutGenerator.Generate(parameters, catalog);
+                WorldDoc empty = ArenaLayoutGenerator.Generate(
+                    parameters, catalog, new List<Rect2>());
+
+                foreach (WorldDoc doc in new[] { unedited, empty })
+                {
+                    Assert.That(
+                        doc.Metadata.ContainsKey(ArenaLayoutGenerator.StandingBarrierCountKey),
+                        Is.False,
+                        $"seed {seed}: a map with nothing standing wrote a barrier key");
+
+                    Assert.That(ArenaLayoutGenerator.RecordedBarriers(doc), Is.Empty);
+                }
+            }
+        }
+
+        /// <remarks>
+        /// <para>
+        /// What counts and what does not. A generated fence is left out because it is about to be
+        /// generated again somewhere else — last map's boundary is not a fact about the next one —
+        /// and hand-placed cover is left out because a road is laid <em>past</em> a crate rather
+        /// than round it, which is the reading the generated map already takes of its own cover.
+        /// </para>
+        /// <para>
+        /// A hand-placed structure counts, because a building somebody stood by hand is not
+        /// something to lay a road through either.
+        /// </para>
+        /// </remarks>
+        [Test]
+        public void OnlyHandPlacedObstaclesCountAsStanding()
+        {
+            Catalog catalog = TestWorlds.ExteriorCatalog();
+            var parameters = new ArenaParams { Seed = 7UL, RoadDensity = 1f };
+            WorldDoc doc = ArenaLayoutGenerator.Generate(parameters, catalog);
+
+            var generatedFences = 0;
+            for (int i = 0; i < doc.GeneratedObjects.Count; i++)
+            {
+                if (HasFenceTag(doc.GeneratedObjects[i]))
+                {
+                    generatedFences++;
+                }
+            }
+
+            Assert.That(generatedFences, Is.GreaterThan(0), "the fixture generated no fence at all");
+            Assert.That(ArenaLayoutGenerator.StandingBarriers(doc, catalog), Is.Empty,
+                "a generated fence is not something the next generation routes round");
+
+            CatalogEntry crate = catalog.Find(TestWorlds.CrateId);
+            doc.Overrides.Add(EditOverride.Add(
+                PlacedObject.UserIdPrefix + "crate_00",
+                crate.LogicalId,
+                Pose.At(new Vec3(2f, 0f, 3f)),
+                new[] { "propbuilding/decor/outdecor/uniquegroup" }));
+
+            Assert.That(ArenaLayoutGenerator.StandingBarriers(doc, catalog), Is.Empty,
+                "a road is laid past hand-placed cover, not round it");
+
+            doc.Overrides.Add(HandPlaced(
+                "fence_00", catalog.Find(TestWorlds.FencePanelId), new Vec2(-4f, 5f)));
+
+            Assert.That(ArenaLayoutGenerator.StandingBarriers(doc, catalog).Count, Is.EqualTo(1),
+                "a hand-placed fence is the whole point of this");
+        }
+
         /// <summary>
         /// Reduces a document to one number over everything a regeneration has to reproduce: every
         /// object in order, its two ids, its pose, its tags and its metadata, and then the world's

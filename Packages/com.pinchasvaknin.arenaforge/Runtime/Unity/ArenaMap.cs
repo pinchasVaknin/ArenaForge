@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using ArenaForge.Core;
 using UnityEngine;
 
@@ -420,16 +421,38 @@ namespace ArenaForge.Unity
         /// then realises the result.
         /// </summary>
         /// <remarks>
+        /// <para>
         /// Every override is carried over, including ones the new generation no longer has a target
         /// for. Those come back in <see cref="ResolvedWorld.OrphanedOverrides"/> for the caller to
         /// show; discarding one is the user's decision, never this method's.
+        /// </para>
+        /// <para>
+        /// <strong>The hand-placed obstacles go in as an input, not just out as an edit.</strong>
+        /// A fence somebody stood by hand is something the next network has to be routed round, and
+        /// this is the moment it can be: the roads are laid inside
+        /// <see cref="ArenaLayoutGenerator.Generate(ArenaParams, Catalog, IReadOnlyList{Rect2})"/>
+        /// and everything else on the map is then placed against them. So the barriers are measured
+        /// off the document being replaced and handed to the generator before it starts — see
+        /// <see cref="ArenaLayoutGenerator.StandingBarriers"/>.
+        /// </para>
+        /// <para>
+        /// <see cref="Generate"/> does not do this, and that is the difference between the two
+        /// buttons rather than an omission: it discards the edits, so there is nothing standing for
+        /// it to route round.
+        /// </para>
         /// </remarks>
         /// <exception cref="InvalidOperationException">The realiser has no catalog.</exception>
         [ContextMenu("Regenerate")]
         public ResolvedWorld Regenerate()
         {
             WorldDoc previous = Document;
-            WorldDoc doc = ArenaLayoutGenerator.Generate(BuildParams(), RequireCatalog());
+            Catalog catalog = RequireCatalog();
+
+            List<Rect2> standing = previous != null
+                ? ArenaLayoutGenerator.StandingBarriers(previous, catalog)
+                : null;
+
+            WorldDoc doc = ArenaLayoutGenerator.Generate(BuildParams(), catalog, standing);
 
             if (previous != null)
             {

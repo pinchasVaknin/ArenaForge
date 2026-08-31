@@ -453,14 +453,20 @@ namespace ArenaForge.Core
         /// <param name="parameters">The map's generator settings. A <see cref="ArenaParams.RoadDensity"/> of zero returns an empty network.</param>
         /// <param name="layout">The lane bands and grid the roads are laid over.</param>
         /// <param name="terrain">The ground, read for gradient. Never graded.</param>
-        /// <param name="committed">Everything already placed, in document order.</param>
-        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <param name="committed">Everything the generator placed, in document order.</param>
+        /// <param name="standing">
+        /// Hand-placed obstacles a route may not cross, as world rectangles — see
+        /// <see cref="ArenaLayoutGenerator.StandingBarrierKeyPrefix"/>. Null for a map that had
+        /// none, which is every map generated before anybody edited one.
+        /// </param>
+        /// <exception cref="ArgumentNullException">An argument other than the standing barriers is null.</exception>
         /// <exception cref="ArgumentOutOfRangeException">A road parameter is outside its supported range.</exception>
         public static RoadNetwork Build(
             ArenaParams parameters,
             ArenaLayout layout,
             TerrainField terrain,
-            IReadOnlyList<PlacedObject> committed)
+            IReadOnlyList<PlacedObject> committed,
+            IReadOnlyList<Rect2> standing = null)
         {
             if (parameters == null)
             {
@@ -493,6 +499,19 @@ namespace ArenaForge.Core
             var barriers = new List<Rect2>();
             var doorways = new List<RoadDoorway>();
             Collect(committed, parameters.PathWidth, structures, barriers, doorways);
+
+            // The generated fences first and the hand-placed ones after, in the order they were
+            // recorded, so two runs over one document shut the same cells in the same order. They
+            // go in the same list because they are the same thing to a route: ground it may not
+            // cross. Nothing here tells them apart afterwards and nothing needs to.
+            for (int i = 0; standing != null && i < standing.Count; i++)
+            {
+                Rect2 barrier = standing[i];
+                if (barrier.Width > 0f && barrier.Depth > 0f)
+                {
+                    barriers.Add(barrier);
+                }
+            }
 
             List<Rect2> gaps = LaneGaps(layout);
             var router = new RoadRouter(

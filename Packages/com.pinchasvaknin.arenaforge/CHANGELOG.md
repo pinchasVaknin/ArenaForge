@@ -74,6 +74,36 @@ All notable changes to this package are documented here. The format follows
 
 ### Added
 
+- **A hard obstacle you placed by hand turns the roads at the next regeneration.** The barrier work
+  above covers the fences the generator puts down, which say where they are in their own metadata. A
+  hand-placed one cannot — it is an override rather than something a stage produced, and
+  `RoadNetwork.Build` is handed `doc.GeneratedObjects` — so it goes in the other way: as an *input*
+  to generation.
+
+  `ArenaLayoutGenerator.StandingBarriers` measures the `user/` objects of the document being
+  replaced, keeping the ones tagged `fence` or `structure`; `ArenaMap.Regenerate` hands them to
+  `Generate`, which records them under `StandingBarrierKeyPrefix` and gives them to the router
+  alongside the generated fences. Over twenty seeds, a panel dropped in the middle of the longest
+  carriageway was in a road's way on every one of them and in none of them afterwards.
+
+  **A snapshot taken at generation, not the live override list**, and that is the whole design. The
+  roads are graded into the terrain everything else is then stood on, and every placed object carries
+  the height it was placed at — so a network that re-routed when you dropped a crate would re-grade
+  the ground under the cover already down and leave it hanging. What the router reads is what was
+  standing when the map was made. `Generate` does not do this and should not: it discards the edits,
+  so there is nothing standing for it to route round. That is the difference between the two buttons.
+
+  **Recorded in the document because the replay has no catalog.** `Terrain(doc)` rebuilds the ground
+  a saved map was generated on and can see the user objects but cannot measure them, so it reads back
+  the rectangles rather than working them out — which is what makes the rebuilt network identical to
+  the one the map was built around, asserted point for point over twenty seeds.
+
+  **A map nobody has edited writes nothing**, so every recorded digest in the suite is where it was.
+
+  `PlacedObject.UserIdPrefix` moved into Core with it. The namespace was a string in the editor, and
+  a generation stage now asks the same question of a resolved world; two copies of it are two chances
+  for a generated id to collide with a hand-placed one, which is the one thing it exists to prevent.
+
 - **The placement guides are drawn while a prefab is still being dragged, not after it lands.**
   `ArenaDragGuides` hooks `SceneView.duringSceneGui` and answers, on every `DragUpdated`, the two
   questions somebody dragging a crate into an arena is actually asking: where it will land — which

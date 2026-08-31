@@ -11,21 +11,23 @@ the code.
 
 ## Known limitations, with what fixing them would take
 
-**A fence you placed by hand does not turn a road.** The three fencing stages record the ground each
-panel stands on and `RoadNetwork` shuts it, so a *generated* fence is an obstacle a route goes round.
-A fence you drop in yourself is not: `ArenaLayoutGenerator.Generate` and `Terrain(doc)` both hand the
-router `doc.GeneratedObjects`, so nothing under `user/` reaches it at all.
+**A fence you place by hand turns a road at the next regeneration, not straight away.** Hand-placed
+barriers are inputs to `ArenaLayoutGenerator.Generate`, measured off the document being replaced by
+`StandingBarriers` and recorded into the new one under `StandingBarrierKeyPrefix`. So Regenerate
+routes round the fence you stood; dropping one changes nothing until you press it.
 
-That is not an oversight in the barrier work, it is the seam the barrier work stopped at. The roads
-are laid *during* generation and graded into the terrain everything else is then stood on, so a
-network that answered to user objects would re-route — and re-grade the ground under every placed
-object — every time somebody dropped a crate. Making it work means deciding what a road is a function
-of, and the honest options are both large: recompute the network on every edit and accept that hand
-placement moves the map, or keep a second reservation layer that user objects feed and roads respect
-only at the next explicit regenerate. Neither is a change to make while nobody has asked for it.
+That is the choice rather than the shortfall. The roads are laid *during* generation and graded into
+the terrain everything else is then stood on, and every placed object carries the height it was
+placed at — so a network that answered to the live override list would re-route, re-grade, and leave
+the cover that was already down floating over the new ground or buried under it. Taking the snapshot
+is what keeps the map still while you work on it. The cost is that hand placement is one regeneration
+behind.
 
-The workaround is the one the tool already has: place the fence, then regenerate. It will not become
-an obstacle, but the cover stage will keep off the carriageway either way.
+**Two smaller seams sit inside that one.** A *generated* object you have merely moved is recorded at
+the position the generator gave it, because the barriers are read before the override list is
+re-applied; and only the roads read the standing barriers, so the cover stage still scatters against
+the generated world alone. Neither has been asked for, and both would want the same decision made
+about what a stage is a function of.
 
 **The analysis is two-dimensional.** Occluders are rectangles on the XZ plane with a vertical span,
 and exposure is measured at one eye height on the ground. A two-storey building is a single

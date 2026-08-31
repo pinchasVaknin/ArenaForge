@@ -40,7 +40,12 @@ namespace ArenaForge.Editor
         const float ScaleEpsilon = 1e-3f;
 
         /// <summary>Namespace user-added objects live in, so their ids can never collide with generated ones.</summary>
-        public const string UserIdPrefix = "user/";
+        /// <remarks>
+        /// Core's, not this file's: <see cref="ArenaLayoutGenerator.StandingBarriers"/> asks the same
+        /// question of a resolved world, and a second copy of the namespace is a second chance for
+        /// the two halves to disagree about what a hand-placed id looks like.
+        /// </remarks>
+        public const string UserIdPrefix = PlacedObject.UserIdPrefix;
 
         sealed class Watched
         {

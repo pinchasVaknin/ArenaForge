@@ -17,6 +17,16 @@ namespace ArenaForge.Core
     {
         static readonly string[] NoTags = Array.Empty<string>();
 
+        /// <summary>Namespace a user-created object's <see cref="StableId"/> begins with.</summary>
+        /// <remarks>
+        /// Here rather than in the editor that mints them, because it is a fact about the id scheme
+        /// and the id scheme is Core's — see the remarks on <see cref="StableId"/>. It was a string
+        /// in the editor until a generation stage had to ask the same question of a resolved world;
+        /// two copies of a namespace are two chances for a generated id to collide with a
+        /// hand-placed one, which is the one thing the namespace exists to prevent.
+        /// </remarks>
+        public const string UserIdPrefix = "user/";
+
         readonly SortedDictionary<string, string> _metadata;
 
         /// <summary>

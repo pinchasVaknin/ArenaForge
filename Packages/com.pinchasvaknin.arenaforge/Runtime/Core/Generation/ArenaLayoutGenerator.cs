@@ -144,6 +144,59 @@ namespace ArenaForge.Core
         /// </remarks>
         public const string BarrierKey = "barrier";
 
+        /// <summary>
+        /// Document metadata key holding how many hand-placed barriers were standing when this map
+        /// was generated.
+        /// </summary>
+        /// <remarks>
+        /// Absent when there were none, so a map generated without any is byte for byte the map it
+        /// always was.
+        /// </remarks>
+        public const string StandingBarrierCountKey = "standing_barrier_count";
+
+        /// <summary>Prefix of the document metadata keys holding those barriers' rectangles.</summary>
+        /// <remarks>
+        /// <para>
+        /// <strong>A snapshot, taken at generation, and that is the whole design.</strong> The roads
+        /// are laid during generation and graded into the ground everything else is then stood on,
+        /// so a network that answered to the live override list would re-route — and re-grade the
+        /// ground under every object already placed — the moment somebody dropped a crate. Every
+        /// generated object carries the height it was placed at, so the ground would move and the
+        /// objects would not.
+        /// </para>
+        /// <para>
+        /// So what the router reads is what was standing when the map was made, recorded here.
+        /// A fence added afterwards changes nothing until the next regeneration, which is when
+        /// everything else is re-placed against the new roads too. The cost is that hand placement
+        /// is one regeneration behind; the alternative is a map that rearranges itself under you.
+        /// </para>
+        /// <para>
+        /// In the document rather than recomputed for the same reason <see cref="BarrierKey"/> is:
+        /// <see cref="Terrain(WorldDoc)"/> replays the ground a saved map was generated on and is
+        /// handed no catalog, so it cannot measure a user object's footprint even though it can see
+        /// the object. Reading back what was written is what makes the replay exact.
+        /// </para>
+        /// </remarks>
+        public const string StandingBarrierKeyPrefix = "standing_barrier_";
+
+        /// <summary>Tag that makes a hand-placed object something a road is routed round.</summary>
+        /// <remarks>
+        /// <para>
+        /// The root of the fence vocabulary, which is what a workspace's <c>Props/fence</c> folder
+        /// gives every piece filed under it — so what counts as a hard obstacle is decided where
+        /// every other question about what a piece of art <em>is</em> gets decided, by which folder
+        /// it was put in. A structure counts too, through
+        /// <see cref="StructureTag"/>: a building somebody stood by hand is not something to lay a
+        /// road through either.
+        /// </para>
+        /// <para>
+        /// Cover deliberately does not. A road is laid past a crate rather than round it — the same
+        /// reading <see cref="WalkableGrid"/> takes and the same one the generated map already
+        /// takes of its own cover.
+        /// </para>
+        /// </remarks>
+        public const string BarrierTag = "fence";
+
         /// <summary>Tag a catalog entry must carry to be used as a spawn marker.</summary>
         public const string SpawnMarkerTag = "spawn";
 
@@ -240,7 +293,8 @@ namespace ArenaForge.Core
         /// The catalog cannot supply a required piece, or a structure the composition rule demands
         /// will not fit in any lane of the map.
         /// </exception>
-        public static WorldDoc Generate(ArenaParams parameters, Catalog catalog)
+        public static WorldDoc Generate(
+            ArenaParams parameters, Catalog catalog, IReadOnlyList<Rect2> standing = null)
         {
             if (parameters == null)
             {
@@ -255,6 +309,12 @@ namespace ArenaForge.Core
             ArenaLayout layout = ArenaLayout.Build(parameters);
             TerrainField terrain = TerrainField.Build(parameters);
             var doc = new WorldDoc { Parameters = parameters.Clone() };
+
+            // Written before anything is placed, because it is an input to this generation rather
+            // than something it produced — and because the replay has to read exactly what the road
+            // stage below was handed. Nothing is written when there is nothing standing, so a map
+            // generated without hand-placed obstacles is byte for byte the map it always was.
+            RecordStanding(doc, standing);
 
             EmitSpawnMarkers(doc, layout, terrain, catalog);
             List<MapStructure> structures = EmitStructures(doc, layout, terrain, catalog, parameters);
@@ -296,7 +356,8 @@ namespace ArenaForge.Core
             // Nothing is added to the document here. A network is a pure function of the parameters,
             // the ground and the placements, in the way ArenaLayout and TerrainField are, and this
             // is the one stage of the pipeline whose output is a reservation rather than an object.
-            RoadNetwork roads = RoadNetwork.Build(parameters, layout, terrain, doc.GeneratedObjects);
+            RoadNetwork roads = RoadNetwork.Build(
+                parameters, layout, terrain, doc.GeneratedObjects, standing);
 
             // And then the ground under it, before anything else is stood on that ground. The
             // network was routed over the field as the structures left it, so it has to be graded
@@ -326,6 +387,160 @@ namespace ArenaForge.Core
             CoverPlacer.Place(doc, layout, terrain, catalog, structures, anchored, roads);
 
             return doc;
+        }
+
+        /// <summary>
+        /// The hand-placed obstacles standing in a document, as world rectangles, in document order.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// What to hand <see cref="Generate(ArenaParams, Catalog, IReadOnlyList{Rect2})"/> when
+        /// regenerating a map somebody has already edited, so the new roads are routed round the
+        /// fences they put there. Read off the <em>resolved</em> world, because a hand-placed object
+        /// is an override rather than a generated one — but only the objects under
+        /// <see cref="PlacedObject.UserIdPrefix"/>, because everything else
+        /// in there is about to be generated again somewhere else and last generation's fence is not
+        /// a fact about the next one.
+        /// </para>
+        /// <para>
+        /// The catalog is needed and only here: a placement records a pose, and how much ground that
+        /// pose covers is a fact about the art. That is the whole reason the answer is recorded into
+        /// the document afterwards — see <see cref="StandingBarrierKeyPrefix"/> — rather than worked
+        /// out again by a replay that has no catalog to work it out from.
+        /// </para>
+        /// <para>
+        /// A row the catalog no longer has is skipped rather than guessed at, on the same terms as
+        /// <see cref="Analysis.MapAnalyzer"/>: art that has gone occupies nothing.
+        /// </para>
+        /// </remarks>
+        /// <param name="doc">The document being regenerated, with its edits still on it.</param>
+        /// <param name="catalog">The art the placements name, for their footprints.</param>
+        /// <exception cref="ArgumentNullException">Either argument is null.</exception>
+        public static List<Rect2> StandingBarriers(WorldDoc doc, Catalog catalog)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            if (catalog == null)
+            {
+                throw new ArgumentNullException(nameof(catalog));
+            }
+
+            var standing = new List<Rect2>();
+            IReadOnlyList<PlacedObject> world = doc.Resolve().Objects;
+
+            for (int i = 0; i < world.Count; i++)
+            {
+                PlacedObject placed = world[i];
+                if (!placed.StableId.StartsWith(
+                        PlacedObject.UserIdPrefix, StringComparison.Ordinal) ||
+                    !IsBarrier(placed))
+                {
+                    continue;
+                }
+
+                CatalogEntry entry = catalog.Find(placed.LogicalId);
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                Rect2 footprint = placed.Pose.Bounds(entry.Footprint);
+                if (footprint.Width > 0f && footprint.Depth > 0f)
+                {
+                    standing.Add(footprint);
+                }
+            }
+
+            return standing;
+        }
+
+        /// <summary>True for a placement a road may not be laid through.</summary>
+        /// <remarks>
+        /// Two tags, and the vocabulary is the workspace's rather than this file's — see
+        /// <see cref="BarrierTag"/>. Any prefix of the fence path counts, so a piece filed in
+        /// <c>Props/fence/StoneFence</c> is one whether the row carries the root tag or only the
+        /// leaf.
+        /// </remarks>
+        static bool IsBarrier(PlacedObject placed)
+        {
+            for (int i = 0; i < placed.Tags.Count; i++)
+            {
+                string tag = placed.Tags[i];
+                if (string.Equals(tag, StructureTag, StringComparison.Ordinal) ||
+                    string.Equals(tag, BarrierTag, StringComparison.Ordinal) ||
+                    tag.StartsWith(BarrierTag + "/", StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// The hand-placed obstacles a document recorded as standing when it was generated.
+        /// </summary>
+        /// <remarks>
+        /// The other half of <see cref="StandingBarriers"/>, and the half a replay uses. Ordered by
+        /// the index in the key rather than by the dictionary, so the list comes back the way it
+        /// went in on any machine. A count that is missing, unreadable or negative is a map that
+        /// recorded none, which is every map generated before there was anything to record.
+        /// </remarks>
+        /// <exception cref="ArgumentNullException"><paramref name="doc"/> is null.</exception>
+        public static List<Rect2> RecordedBarriers(WorldDoc doc)
+        {
+            if (doc == null)
+            {
+                throw new ArgumentNullException(nameof(doc));
+            }
+
+            var recorded = new List<Rect2>();
+
+            if (!doc.Metadata.TryGetValue(StandingBarrierCountKey, out string countText) ||
+                !int.TryParse(
+                    countText, NumberStyles.Integer, CultureInfo.InvariantCulture, out int count))
+            {
+                return recorded;
+            }
+
+            for (int i = 0; i < count; i++)
+            {
+                string key = StandingBarrierKeyPrefix +
+                             i.ToString("000", CultureInfo.InvariantCulture);
+
+                if (doc.Metadata.TryGetValue(key, out string text) &&
+                    RectMetadata.TryParse(text, out Rect2 barrier))
+                {
+                    recorded.Add(barrier);
+                }
+            }
+
+            return recorded;
+        }
+
+        /// <summary>Writes what was standing into the document, or nothing when nothing was.</summary>
+        static void RecordStanding(WorldDoc doc, IReadOnlyList<Rect2> standing)
+        {
+            if (standing == null || standing.Count == 0)
+            {
+                return;
+            }
+
+            doc.Metadata[StandingBarrierCountKey] =
+                standing.Count.ToString(CultureInfo.InvariantCulture);
+
+            for (int i = 0; i < standing.Count; i++)
+            {
+                // Three digits, as the boundary's own ids are: a fenced yard is easily a hundred
+                // panels, and a key that ran from _098 to _100 would sort into an order nobody
+                // reading the document expects.
+                doc.Metadata[
+                        StandingBarrierKeyPrefix + i.ToString("000", CultureInfo.InvariantCulture)] =
+                    RectMetadata.Format(standing[i]);
+            }
         }
 
         /// <summary>
@@ -372,7 +587,8 @@ namespace ArenaForge.Core
                 doc.Parameters,
                 ArenaLayout.Build(doc.Parameters),
                 terrain,
-                doc.GeneratedObjects);
+                doc.GeneratedObjects,
+                RecordedBarriers(doc));
 
             roads.GradeInto(terrain);
             return terrain;
