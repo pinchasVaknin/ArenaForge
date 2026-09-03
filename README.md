@@ -190,6 +190,13 @@ have the package. `docs/building.md` reads all four frames.
 **Tools → ArenaForge → Setup Complete Workspace.** One click does the three things a project needs
 before it can generate anything of its own.
 
+**A clone starts without one, and that is deliberate.** `Assets/ArenaWorkspace` is not committed:
+every prefab in it is a wrapper round a piece of whatever art pack the machine that made it had —
+measured from that pack and pointing at its GUIDs — and everything else in it is output the tool
+writes. Committing the workspace would put somebody else's art in the repository by proxy and hand
+the next clone a tree of broken references. Point this at your own pack and press the button; the
+folders, the catalog and the starter art are all rebuilt from what you have.
+
 It makes `Assets/ArenaWorkspace` — somewhere to work that updating the package will not overwrite,
 which the imported sample is not:
 

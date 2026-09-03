@@ -73,3 +73,21 @@ desktop.ini
 # through the catalog, and the README says no third-party assets ship with it.
 /[Aa]ssets/[Mm]odels/
 /[Aa]ssets/[Mm]odels.meta
+
+# The workspace the tool builds, for the same reason and one more. Every prefab under it is a
+# wrapper round a piece of the pack above — measured out of it, pointing at its GUIDs, and a
+# broken reference in any clone that does not have the pack — and everything else under it is
+# output: exported buildings, a synced catalog, generated starter art. Tools → ArenaForge →
+# Setup Complete Workspace puts the whole tree back from whatever pack a checkout does have.
+/[Aa]ssets/[Aa]rena[Ww]orkspace/
+/[Aa]ssets/[Aa]rena[Ww]orkspace.meta
+
+# Generated maps: a map is a seed, some parameters and a list of edits, and the prefab and the
+# JSON here are both exports of one.
+/[Aa]ssets/[Mm]aps/
+/[Aa]ssets/[Mm]aps.meta
+
+# The package's own sample, copied in by the Package Manager from Samples~. The copy is not the
+# source; Window → Package Manager → ArenaForge → Samples writes it again.
+/[Aa]ssets/[Ss]amples/
+/[Aa]ssets/[Ss]amples.meta
