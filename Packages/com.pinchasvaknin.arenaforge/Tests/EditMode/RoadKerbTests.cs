@@ -27,8 +27,9 @@ namespace ArenaForge.Tests
     /// </para>
     /// </remarks>
     /// <remarks>
-    /// Categorised <c>Slow</c>: every case lays a kerbed network over a generated map. CI runs them
-    /// on main and skips them on a pull request — see CONTRIBUTING.md.
+    /// Categorised <c>Slow</c>: every case lays a kerbed network over a generated map.
+    /// <c>-testCategory "!Slow"</c> leaves them out of the short run used while iterating — see
+    /// CONTRIBUTING.md.
     /// </remarks>
     [Category("Slow")]
     public sealed class RoadKerbTests

@@ -2,7 +2,7 @@
 
 ![Unity 6000.0+](https://img.shields.io/badge/Unity-6000.0%2B-black?logo=unity)
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![Tests](https://img.shields.io/badge/tests-736%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-EditMode%20%28local%29-brightgreen)
 
 <!-- Replace this with docs/loop.gif once recorded — see docs/loop.md for the four steps. -->
 

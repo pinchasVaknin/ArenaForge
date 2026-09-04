@@ -87,39 +87,66 @@ request of its own, with the new distribution measured and `REPORT.md` updated i
 
 ## Running the tests
 
+**A local run is the validation gate on this project.** There is a CI workflow in
+`.github/workflows/tests.yml`, but it is dormant — Unity no longer permits a Personal seat to be
+activated in CI, so nothing on GitHub can start an editor for us. The workflow header explains the
+detail and how to switch it on if that ever changes. Until then, "the tests pass" means you ran them,
+so please actually run them before opening a pull request, and say in the description that you did.
+
 **In the editor:** Window → General → Test Runner → EditMode → Run All. 736 tests.
 
-**Headless**, which is what CI does:
+**Headless**, which is the same suite without the editor UI in the way:
 
 ```bash
 Unity.exe -batchmode -projectPath . -runTests -testPlatform EditMode \
           -testResults results.xml -logFile run.log
 ```
 
-A full run is about ten minutes on a normal machine. Two things worth knowing:
+On Windows, `Unity.exe` is a GUI-subsystem binary: launched from PowerShell with `&` it returns
+instantly with an empty exit code while the editor is still running, which looks exactly like a
+crashed run. Use `Start-Process -Wait`:
+
+```powershell
+$unity = "C:\Program Files\Unity\Hub\Editor\6000.3.11f1\Editor\Unity.exe"
+Start-Process -FilePath $unity -Wait -PassThru -ArgumentList @(
+  "-batchmode", "-projectPath", ".", "-runTests", "-testPlatform", "EditMode",
+  "-testResults", "results.xml", "-logFile", "run.log")
+```
+
+The exit code is 0 when everything passed and 2 when something failed, but read `results.xml` rather
+than trusting the code — it is NUnit XML, and the `<test-run>` element carries `total`, `passed` and
+`failed` as attributes.
+
+A full run is about ten minutes on a normal machine. Three things worth knowing:
 
 - **Do not run anything CPU-heavy alongside it.** `MapValidationTests` is a thousand-seed
   `Parallel.For` sweep under NUnit's 180-second per-test timeout. It finishes comfortably with the
   machine to itself and times out when starved — which reads exactly like a generator regression and
   is not one. Re-run clean before believing a failure.
 - **A running editor holds the project lock**, so a batch run fails while one is open.
+- **Do not edit source while a run is in flight.** A domain reload part-way through invalidates the
+  results, and the run that comes back is not a run of either version.
 
-### The `Slow` category, and what CI runs
+### The `Slow` category, and the short run
 
 Three fixtures are categorised `Slow` — `RoadFurnitureTests`, `MapCompositionTests` and
 `RoadKerbTests`. They are the three most expensive suites in the project and nothing else.
 
-| | Tests | Time |
+| | Tests | Measured |
 |---|---|---|
-| Pull request — `-testCategory "!Slow"` | 700 | ~5½ min |
-| Push to main — everything | 736 | ~10 min |
+| `-testCategory "!Slow"` | 700 | ~5½ min |
+| everything | 736 | ~10 min |
 
 The thousand-seed validation sweep is deliberately **not** in that category. It costs 57 seconds and
-it is the one guarantee that should never be deferred, so it runs on every pull request.
+it is the one guarantee that should never be deferred, so the short run keeps it.
 
-To reproduce the pull-request run locally, add `-testCategory "!Slow"`. Note that excluding fixtures
-with `-testFilter` and a negative-lookahead regex does **not** work — Unity accepts the pattern and
-then silently runs everything, so a "fast" run quietly becomes a full one. Use the category.
+Use the short run while iterating; **run the full suite before you push or open a pull request.**
+Since CI cannot run it for us, the full suite is only ever as reliable as the last person who
+remembered to run it.
+
+One trap, recorded because it cost an afternoon: excluding fixtures with `-testFilter` and a
+negative-lookahead regex does **not** work. Unity accepts the pattern, ignores it, and runs all 736 —
+so a run you believe is filtered is quietly the full one. Only `-testCategory` honours `!`.
 
 ---
 

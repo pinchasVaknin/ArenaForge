@@ -31,9 +31,10 @@ namespace ArenaForge.Tests
     /// </remarks>
     /// <remarks>
     /// Categorised <c>Slow</c>: these generate a furnished map per case and are the most expensive
-    /// suite in the project. CI runs them on main and skips them on a pull request — see
-    /// CONTRIBUTING.md. Nothing here is less important than what a pull request does run; it is the
-    /// only thing here that is dear enough to be worth deferring.
+    /// suite in the project. <c>-testCategory "!Slow"</c> leaves them out of the short run used while
+    /// iterating — see CONTRIBUTING.md. Nothing here is less important than what the short run keeps;
+    /// it is the only thing here dear enough to be worth deferring, and the full suite before a push
+    /// is what pays that back.
     /// </remarks>
     [Category("Slow")]
     public sealed class RoadFurnitureTests

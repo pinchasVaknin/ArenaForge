@@ -35,7 +35,8 @@ namespace ArenaForge.Tests
     /// </remarks>
     /// <remarks>
     /// Categorised <c>Slow</c>: the four-hundred-metre cases build a town of three dozen buildings
-    /// apiece. CI runs them on main and skips them on a pull request — see CONTRIBUTING.md.
+    /// apiece. <c>-testCategory "!Slow"</c> leaves them out of the short run used while iterating —
+    /// see CONTRIBUTING.md.
     /// </remarks>
     [Category("Slow")]
     public sealed class MapCompositionTests

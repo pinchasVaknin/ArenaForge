@@ -1,5 +1,42 @@
 # ArenaForge — EditMode test suite.
 #
+#
+# THIS WORKFLOW IS DORMANT, AND THAT IS DELIBERATE
+# ------------------------------------------------
+# It does nothing until the repository variable UNITY_CI_ENABLED is set to the string "true". Until
+# then every job is skipped, so the workflow reports neither a pass nor a failure. The gate is a
+# variable rather than a secret because the `vars` context is available to a job-level `if` and the
+# `secrets` context is not.
+#
+# It is dormant because a Unity Personal seat can no longer be activated in CI. The route this file
+# originally documented — run the editor with -createManualActivationFile, upload the resulting .alf
+# to license.unity3d.com, paste the .ulf it returns into a UNITY_LICENSE secret — is closed. That
+# page now answers a Personal account with:
+#
+#     You are not eligible to activate your license offline.
+#     Offline activation is available only for Enterprise and Industry seats.
+#
+# There is nothing to configure around that. Until this project has a licence CI can use, the
+# validation gate is a local run before pushing; CONTRIBUTING.md says how, and that is not a
+# concession — it is the same suite, on the same editor, with the same result.
+#
+# TO TURN IT ON, when there is a licence to turn it on with:
+#   1. Settings → Secrets and variables → Actions → Variables → New repository variable
+#        UNITY_CI_ENABLED = true
+#   2. Add the matching secret on the Secrets tab:
+#        Pro / Enterprise seat  → UNITY_EMAIL, UNITY_PASSWORD, UNITY_SERIAL
+#        Licence server         → UNITY_LICENSING_SERVER
+#        A .ulf, if one is ever obtainable again → UNITY_LICENSE
+#   3. Actions → Tests → Run workflow, to check it before relying on it.
+#
+# Note that repository secrets are not exposed to a workflow triggered by a pull request from a
+# fork, so even once this is enabled an outside contributor's pull request will not get a run. That
+# is a GitHub security boundary, not a misconfiguration. Do not reach for pull_request_target to get
+# around it: that hands untrusted code the secrets.
+#
+#
+# WHAT IT RUNS, ONCE ENABLED
+# --------------------------
 # One job, two modes. A pull request runs everything except the suites categorised `Slow`; a push to
 # main runs the lot. The split is by NUnit category rather than by a name filter because Unity's
 # -testFilter does not honour a negative lookahead — a regex excluding a fixture is accepted and then
@@ -12,11 +49,6 @@
 # most expensive in the project and nothing else. The thousand-seed validation sweep is NOT among
 # them: it costs 57 s and is the one guarantee that should never be deferred, so it runs on every
 # pull request.
-#
-# Requires a Unity licence in the repository secrets. For a Personal licence, activate once locally
-# and paste the contents of the resulting .ulf file into a secret named UNITY_LICENSE; for a Pro
-# licence set UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL instead. Without them this workflow
-# cannot start the editor, which is the one thing it cannot work around.
 
 name: Tests
 
@@ -38,6 +70,11 @@ jobs:
     name: EditMode (${{ github.event_name == 'pull_request' && 'fast' || 'full' }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+
+    # The dormancy gate. Skipped is the correct resting state: a run that cannot start the editor
+    # would fail on every push and train everyone to ignore a red mark, which costs more than having
+    # no mark at all.
+    if: vars.UNITY_CI_ENABLED == 'true'
 
     steps:
       - name: Check out
