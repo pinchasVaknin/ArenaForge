@@ -1,0 +1,80 @@
+# ArenaForge — EditMode test suite.
+#
+# One job, two modes. A pull request runs everything except the suites categorised `Slow`; a push to
+# main runs the lot. The split is by NUnit category rather than by a name filter because Unity's
+# -testFilter does not honour a negative lookahead — a regex excluding a fixture is accepted and then
+# silently ignored, so the "fast" run quietly becomes the full one. -testCategory does support `!`.
+#
+# Measured on the reference machine, 736 tests total:
+#   full          736 tests, ~600 s
+#   !Slow         700 tests, ~343 s
+# The three Slow fixtures — RoadFurnitureTests, MapCompositionTests, RoadKerbTests — are the three
+# most expensive in the project and nothing else. The thousand-seed validation sweep is NOT among
+# them: it costs 57 s and is the one guarantee that should never be deferred, so it runs on every
+# pull request.
+#
+# Requires a Unity licence in the repository secrets. For a Personal licence, activate once locally
+# and paste the contents of the resulting .ulf file into a secret named UNITY_LICENSE; for a Pro
+# licence set UNITY_EMAIL, UNITY_PASSWORD and UNITY_SERIAL instead. Without them this workflow
+# cannot start the editor, which is the one thing it cannot work around.
+
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run irrelevant. main is exempt, so the history of
+# what passed on the release branch stays complete.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  editmode:
+    name: EditMode (${{ github.event_name == 'pull_request' && 'fast' || 'full' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      # Library is gitignored and costs several minutes to rebuild from cold. Keyed on the things
+      # that actually invalidate an import — the package set and the editor version — so an ordinary
+      # source change reuses it.
+      - name: Restore Library
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Packages/manifest.json', 'ProjectSettings/ProjectVersion.txt') }}
+          restore-keys: |
+            Library-
+
+      - name: Run EditMode tests
+        uses: game-ci/unity-test-runner@v4
+        id: tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          projectPath: .
+          testMode: editmode
+          artifactsPath: test-results
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+          checkName: EditMode results (${{ github.event_name == 'pull_request' && 'fast' || 'full' }})
+          customParameters: ${{ github.event_name == 'pull_request' && '-testCategory !Slow' || '' }}
+
+      # always(), because a failing run is exactly when the NUnit XML is worth reading.
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ github.event_name }}-${{ github.run_number }}
+          path: test-results
+          retention-days: 14

@@ -1,12 +1,10 @@
 # ArenaForge
 
-<!-- Replace this row with docs/loop.gif once recorded — see docs/loop.md for the four steps. -->
+![Unity 6000.0+](https://img.shields.io/badge/Unity-6000.0%2B-black?logo=unity)
+![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
+![Tests](https://img.shields.io/badge/tests-736%20passing-brightgreen)
 
-| Generate | Move one crate | Regenerate on a new seed |
-|:--:|:--:|:--:|
-| ![Generated](docs/loop-1-generated.png) | ![Edited](docs/loop-2-edited.png) | ![Regenerated](docs/loop-3-regenerated.png) |
-
-*Everything moved except the crate that was moved by hand.*
+<!-- Replace this with docs/loop.gif once recorded — see docs/loop.md for the four steps. -->
 
 ArenaForge is a Unity editor tool that procedurally generates small Call-of-Duty-style arena maps —
 about 60 × 60 metres, a two-storey building anchoring the middle, a structure anchoring each flank, a
@@ -23,14 +21,12 @@ generated map can be judged rather than just looked at.
 
 ## The map, and how it plays
 
-| Top-down | Exposure |
-|:--:|:--:|
-| ![Top-down render](docs/loop-3-regenerated.png) | ![Exposure heatmap](docs/loop-4-exposure.png) |
-
-The same map, rendered and measured. On the right, cold blue is ground almost nobody can see and
-hot yellow is ground seen from everywhere; dark cells are the floor a structure stands on. The
-shadows fanning out from each barrier are its sightline cover. Exposure is computed in pure C# by
-segment-versus-rectangle intersection — no physics, no colliders, no loaded scene.
+Every map the tool builds, it also measures. The exposure pass asks of each cell of walkable floor
+what share of the map can see it: cold ground is sheltered, hot ground is overlooked from
+everywhere, and the shadow fanning out behind each barrier is the cover that barrier actually
+provides. It is computed in pure C# by segment-versus-rectangle intersection — no physics, no
+colliders, no loaded scene — which is what makes it cheap enough to run over a thousand seeds on
+every run of the test suite.
 
 ## Architecture
 
@@ -147,9 +143,10 @@ To run the tests, add the package to `testables` in `Packages/manifest.json`:
 
 ### Generating a building
 
-| Three storeys, near walls cut away | The ground floor's plan |
-|:--:|:--:|
-| ![A three-storey building shell in cutaway](docs/building-3-shell.png) | ![The ground floor from above, showing rooms, corridors and doorways](docs/building-4-floorplan.png) |
+![A three-storey building shell in cutaway](docs/building-3-shell.png)
+
+*Three storeys with the near walls cut away — rooms, corridors, a doorway in every dividing wall, a
+stairwell standing in the same place on each floor, and a parapet round the roof.*
 
 1. Add an **ArenaForge → Arena Building** component to an empty object and point its `World
    Realizer` at the same catalog.

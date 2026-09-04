@@ -33,6 +33,11 @@ namespace ArenaForge.Tests
     /// throws saying it could not place one.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// Categorised <c>Slow</c>: the four-hundred-metre cases build a town of three dozen buildings
+    /// apiece. CI runs them on main and skips them on a pull request — see CONTRIBUTING.md.
+    /// </remarks>
+    [Category("Slow")]
     public sealed class MapCompositionTests
     {
         /// <summary>Seeds swept by the properties that have to hold of every map.</summary>

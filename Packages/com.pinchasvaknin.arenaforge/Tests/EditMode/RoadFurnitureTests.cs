@@ -29,6 +29,13 @@ namespace ArenaForge.Tests
     /// measurement about height and turns the relief up to ask it.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// Categorised <c>Slow</c>: these generate a furnished map per case and are the most expensive
+    /// suite in the project. CI runs them on main and skips them on a pull request — see
+    /// CONTRIBUTING.md. Nothing here is less important than what a pull request does run; it is the
+    /// only thing here that is dear enough to be worth deferring.
+    /// </remarks>
+    [Category("Slow")]
     public sealed class RoadFurnitureTests
     {
         /// <summary>Seeds swept by the properties that have to hold of every map.</summary>

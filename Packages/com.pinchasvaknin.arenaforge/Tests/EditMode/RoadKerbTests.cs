@@ -26,6 +26,11 @@ namespace ArenaForge.Tests
     /// <see cref="TerrainTests"/>.
     /// </para>
     /// </remarks>
+    /// <remarks>
+    /// Categorised <c>Slow</c>: every case lays a kerbed network over a generated map. CI runs them
+    /// on main and skips them on a pull request — see CONTRIBUTING.md.
+    /// </remarks>
+    [Category("Slow")]
     public sealed class RoadKerbTests
     {
         /// <summary>Seeds swept by the properties that have to hold of every map.</summary>
